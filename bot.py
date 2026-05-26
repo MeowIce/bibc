@@ -1,3 +1,9 @@
+# Copyright (c) 2026 MeowIce
+
+# Permission is granted to use, modify, and distribute this software for non-commercial purposes only.
+# Selling this software or any derivative works is prohibited without explicit written permission.
+# Removing or altering author credits is prohibited.
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -45,7 +51,7 @@ async def toggleLogOnly(interaction: discord.Interaction):
     PolicyModes[guildId] = not isLogOnlyMode
     isLogOnlyMode = PolicyModes[guildId]
     
-    await interaction.response.send_message(f"Action policy has changed to {'`LogOnly`' if isLogOnlyMode else '`Enforced`'}")
+    await interaction.response.send_message(f"Execution Policy has changed to {'`LogOnly`' if isLogOnlyMode else '`Enforced`'}")
 
 @bot.tree.command(name="getpolicy", description="Query current policy.")
 async def getpolicy(interaction: discord.Interaction):
