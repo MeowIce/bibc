@@ -64,4 +64,10 @@ Execute `python3 bot.py` to run the bot.
 
 
 ## License
-You can redistribute the codes, modify it to whatever you like, but not selling or making any profits out of it.
+Copyright (c) 2026 MeowIce
+
+Permission is granted to use, modify, and distribute this software for non-commercial purposes only.
+
+Selling this software or any derivative works is prohibited without explicit written permission.
+
+Removing or altering author credits is prohibited.
