@@ -1,15 +1,8 @@
 # BanInBlacklistedChannels 2.0
-## A simple bot to insta-ban spammers in Discord. Written in Python.
-
-This code is used to run `BanInBlacklistedChannels#5518` in the [MeowHouse](https://dsc.gg/meowsmp) server. 
-
-When it detects a user chatting in blacklisted channel(s) configured in the code, it will log the message content in the console, then ban the user.
-
-<img width="326" height="57" alt="image" src="https://github.com/user-attachments/assets/89bc4b31-d378-48ff-bb14-97d5e404dc3e" />
-
-## Why is this bot ?
-Users whose accounts have been hacked usually try to spam the same messages across every channels they can chat. By exploiting this vulnerability, we can write a simple Python bot to watch a channel and catch spammers:
-<img width="1028" height="686" alt="image" src="https://github.com/user-attachments/assets/ed4c9888-1b8c-43c4-b91b-df71139b54ea" />
+## BanInBlacklistedChannels (BIBC) is the strongest spammer prevention bot for your servers, with advanced features and customizations.  
+## Introduction 
+BIBC aims to prevent accounts that have been hacked and try to flood the same messages in all channels.  
+Designed with configurable Execution Policies, that either taking actions automatically (`Enforced` policy) or just logging the event (`LogOnly` mode). Eliminating the need for a human to deal with such hassels and reduce stresses for server admins/mods.  
 
 ## Getting started  
 ### Get Python 
@@ -30,7 +23,7 @@ isLogOnlyMode = 0
 `botToken` is where you fill in the bot token. Get it on the [Discord Developer Portal](https://discord.com/developers/applications/) and **keep this token secret**  
 `chID` is which channel(s) you want BIBC to monitor.  
 `reportChID` is where BIBC should send the report messages to.  
-`actionReason` specify the reason to ban the user. This reason will show in the Audit Log.
+`actionReason` specify the reason to ban the user. This reason will show in the Audit Log.  
 `isLogOnlyMode` set this to `1` if you want to use `LogOnly` mode. Set this back to `0` to use `Enforced` mode.  
 > [!NOTE]
 > `LogOnly` (PolicyMode 1) will NOT ban the user who sent messages to `ChID`. It only logs the event to reportChID. Ideal to test the configuration.
