@@ -1,0 +1,7 @@
+Copyright (c) 2026 MeowIce
+
+Permission is granted to use, modify, and distribute this software for non-commercial purposes only.
+
+Selling this software or any derivative works is prohibited without explicit written permission.
+
+Removing or altering author credits is prohibited.
