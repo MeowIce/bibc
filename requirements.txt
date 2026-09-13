@@ -1,2 +1,5 @@
 discord.py
 py-cord
+python-dotenv
+pytest
+pytest-asyncio
