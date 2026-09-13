@@ -33,34 +33,38 @@ class MessageWatcher:
         return False
 
     async def handleMessage(self, message: discord.Message) -> bool:
-        botUser = getattr(self.bot, "user", None)
-        if botUser and message.author.id == botUser.id:
-            return False
-            
-        if getattr(message.author, "bot", False):
-            return False
+        try:
+            botUser = getattr(self.bot, "user", None)
+            if botUser and message.author.id == botUser.id:
+                return False
 
-        if message.guild is None:
-            return False
+            if getattr(message.author, "bot", False):
+                return False
 
-        if self._isDuplicate(message.guild.id, message.id):
-            return False
+            if message.guild is None:
+                return False
 
-        guildConfig = self.guildConfigService.getConfig(message.guild.id)
-        if guildConfig is None or guildConfig.watchChannelId is None:
-            return False
+            if self._isDuplicate(message.guild.id, message.id):
+                return False
 
-        if message.channel.id != guildConfig.watchChannelId:
-            return False
+            guildConfig = self.guildConfigService.getConfig(message.guild.id)
+            if guildConfig is None or guildConfig.watchChannelId is None:
+                return False
 
-        banResult = await self.banService.handleMessage(message, guildConfig)
-        await self.reportService.sendEventReport(
-            guildConfig=guildConfig,
-            message=message,
-            action=banResult.action,
-            reason=banResult.reason
-        )
-        return True
+            if message.channel.id != guildConfig.watchChannelId:
+                return False
+
+            banResult = await self.banService.handleMessage(message, guildConfig)
+            await self.reportService.sendEventReport(
+                guildConfig=guildConfig,
+                message=message,
+                action=banResult.action,
+                reason=banResult.reason
+            )
+            return True
+        except Exception as e:
+            logger.exception(f"Unexpected error handling message {getattr(message, 'id', None)}: {e}")
+            return False
 
 async def handleMessageEvent(message: discord.Message, watchedChannelId: int, policy: str) -> bool:
     if message.author.bot or message.guild is None:

@@ -1,7 +1,8 @@
-import logging
 from datetime import datetime, timezone
+import logging
 import discord
 from models.guildConfig import GuildConfig
+from utils.logging import truncateContent
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,7 @@ class ReportService:
             logger.warning(f"Report channel {guildConfig.reportChannelId} not found in guild {message.guild.id}.")
             return False
 
-        boundedContent = message.content[:self.maxContentLength]
-        if len(message.content) > self.maxContentLength:
-            boundedContent += "..."
-
+        boundedContent = truncateContent(message.content, self.maxContentLength)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
 
         embed = discord.Embed(title="BanInBlacklistedChannels Event Log")
@@ -41,6 +39,9 @@ class ReportService:
         try:
             await reportChannel.send(embed=embed)
             return True
+        except discord.DiscordException as e:
+            logger.warning(f"Discord exception sending report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")
+            return False
         except Exception as e:
             logger.warning(f"Failed to send report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")
             return False
