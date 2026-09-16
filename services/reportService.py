@@ -1,10 +1,18 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
+import io
 import logging
 import discord
 from models.guildConfig import GuildConfig
 from utils.logging import truncateContent
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class SavedMedia:
+    filename: str
+    data: bytes
+    isImage: bool
 
 class ReportService:
     def __init__(self, maxContentLength: int = 500):
@@ -18,23 +26,40 @@ class ReportService:
         imageExtensions = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
         return filename.lower().endswith(imageExtensions)
 
-    def formatMessageContent(self, message: discord.Message) -> str:
+    async def collectMedia(self, message: discord.Message) -> list[SavedMedia]:
+        savedMediaList = []
+        attachments = getattr(message, "attachments", [])
+        for index, attachment in enumerate(attachments):
+            try:
+                data = await attachment.read()
+                originalName = getattr(attachment, "filename", f"file_{index}")
+                safeName = f"{index}_{originalName}"
+                isImage = self.isImageAttachment(attachment)
+                savedMediaList.append(SavedMedia(filename=safeName, data=data, isImage=isImage))
+            except Exception as e:
+                logger.warning(f"Failed to read attachment {getattr(attachment, 'id', index)}: {e}")
+
+        stickers = getattr(message, "stickers", [])
+        for index, sticker in enumerate(stickers):
+            try:
+                if hasattr(sticker, "read"):
+                    data = await sticker.read()
+                    savedMediaList.append(SavedMedia(filename=f"sticker_{index}.png", data=data, isImage=True))
+            except Exception as e:
+                logger.warning(f"Failed to read sticker {getattr(sticker, 'id', index)}: {e}")
+
+        return savedMediaList
+
+    def formatMessageContent(self, message: discord.Message, mediaList: list[SavedMedia] | None = None) -> str:
         boundedContent = truncateContent(getattr(message, "content", ""), self.maxContentLength)
         contentParts = []
         if boundedContent:
             contentParts.append(boundedContent)
 
-        mediaParts = []
-        attachments = getattr(message, "attachments", [])
-        if attachments:
-            for attachment in attachments:
-                url = getattr(attachment, "url", None)
-                filename = getattr(attachment, "filename", "attachment")
-                if url and not self.isImageAttachment(attachment):
-                    mediaParts.append(f"[{filename}]({url})")
-
-        if mediaParts:
-            contentParts.append("\n".join(mediaParts))
+        if mediaList:
+            nonImageMedia = [m for m in mediaList if not m.isImage]
+            if nonImageMedia:
+                contentParts.append("\n".join(f"Attached file: {m.filename}" for m in nonImageMedia))
 
         if not contentParts:
             return "<empty>"
@@ -49,9 +74,11 @@ class ReportService:
         guildConfig: GuildConfig,
         message: discord.Message,
         action: str,
-        reason: str
+        reason: str,
+        mediaList: list[SavedMedia] | None = None
     ) -> list[discord.Embed]:
-        formattedContent = self.formatMessageContent(message)
+        mediaItems = mediaList or []
+        formattedContent = self.formatMessageContent(message, mediaItems)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
 
         if action == "banned":
@@ -61,20 +88,7 @@ class ReportService:
         else:
             statusDisplay = f"Failed: {reason}"
 
-        imageUrls = []
-        attachments = getattr(message, "attachments", [])
-        if attachments:
-            for attachment in attachments:
-                url = getattr(attachment, "url", None)
-                if url and self.isImageAttachment(attachment):
-                    imageUrls.append(url)
-
-        stickers = getattr(message, "stickers", [])
-        if stickers:
-            for sticker in stickers:
-                url = getattr(sticker, "url", None)
-                if url:
-                    imageUrls.append(url)
+        imageMedia = [m for m in mediaItems if m.isImage]
 
         mainEmbed = discord.Embed(title="BanInBlacklistedChannels Event Log")
         mainEmbed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
@@ -82,13 +96,13 @@ class ReportService:
         mainEmbed.add_field(name="Message Content", value=formattedContent, inline=False)
         mainEmbed.set_footer(text=currentTimeStr)
 
-        if imageUrls:
-            mainEmbed.set_image(url=imageUrls[0])
+        if imageMedia:
+            mainEmbed.set_image(url=f"attachment://{imageMedia[0].filename}")
 
         embeds = [mainEmbed]
-        for url in imageUrls[1:10]:
+        for item in imageMedia[1:10]:
             subEmbed = discord.Embed()
-            subEmbed.set_image(url=url)
+            subEmbed.set_image(url=f"attachment://{item.filename}")
             embeds.append(subEmbed)
 
         return embeds
@@ -98,7 +112,8 @@ class ReportService:
         guildConfig: GuildConfig,
         message: discord.Message,
         action: str,
-        reason: str
+        reason: str,
+        mediaList: list[SavedMedia] | None = None
     ) -> bool:
         if not guildConfig.reportChannelId:
             logger.info(f"No report channel configured for guild {message.guild.id}, skipping report.")
@@ -109,13 +124,23 @@ class ReportService:
             logger.warning(f"Report channel {guildConfig.reportChannelId} not found in guild {message.guild.id}.")
             return False
 
-        embeds = self.createReportEmbeds(guildConfig, message, action, reason)
+        if mediaList is None:
+            mediaList = await self.collectMedia(message)
+
+        embeds = self.createReportEmbeds(guildConfig, message, action, reason, mediaList)
+        files = [discord.File(fp=io.BytesIO(m.data), filename=m.filename) for m in mediaList]
 
         try:
             if len(embeds) == 1:
-                await reportChannel.send(embed=embeds[0])
+                if files:
+                    await reportChannel.send(embed=embeds[0], files=files)
+                else:
+                    await reportChannel.send(embed=embeds[0])
             else:
-                await reportChannel.send(embeds=embeds)
+                if files:
+                    await reportChannel.send(embeds=embeds, files=files)
+                else:
+                    await reportChannel.send(embeds=embeds)
             return True
         except discord.DiscordException as e:
             logger.warning(f"Discord exception sending report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")

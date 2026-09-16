@@ -54,6 +54,7 @@ class MessageWatcher:
             if message.channel.id != guildConfig.watchChannelId:
                 return False
 
+            mediaList = await self.reportService.collectMedia(message)
             try:
                 await message.delete()
             except (discord.NotFound, discord.Forbidden, discord.HTTPException) as e:
@@ -66,7 +67,8 @@ class MessageWatcher:
                 guildConfig=guildConfig,
                 message=message,
                 action=banResult.action,
-                reason=banResult.reason
+                reason=banResult.reason,
+                mediaList=mediaList
             )
             return True
         except Exception as e:
