@@ -31,8 +31,9 @@ def calculateMemberCount(guilds) -> int:
     return total
 
 async def updateBotStatus(bot):
-    guilds = getattr(bot, "guilds", [])
-    if not isinstance(guilds, (list, tuple, set)):
+    try:
+        guilds = list(getattr(bot, "guilds", []))
+    except Exception:
         guilds = []
     serverCount = len(guilds)
     memberCount = calculateMemberCount(guilds)
@@ -46,8 +47,11 @@ async def updateBotStatus(bot):
     statusText = formatActivityString(serverCount, memberCount, bannedCount)
     activity = discord.Activity(type=discord.ActivityType.watching, name=statusText)
     if hasattr(bot, "change_presence"):
-        await bot.change_presence(activity=activity)
-        logger.info(f"Bot presence updated: Watching {statusText}")
+        try:
+            await bot.change_presence(activity=activity)
+            logger.info(f"Bot presence updated: Watching {statusText}")
+        except Exception as e:
+            logger.warning(f"Failed to change bot presence: {e}")
 
 class StatusCog(commands.Cog):
     def __init__(
