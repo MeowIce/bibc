@@ -5,22 +5,29 @@
 
 - **Tên dự án**: BanInBlacklistedChannels (BIBC) v2.0
 - **Tác giả**: MeowIce
-- **Mục đích**: Bot Discord chuyên dụng đóng vai trò bẫy lọc spam (honeypot). Tự động phát hiện tin nhắn gửi vào các kênh chỉ định nằm trong danh sách đen (`ChID`), xử lý người dùng vi phạm và báo cáo về kênh giám sát (`reportChID`).
-- **Cấu trúc tệp tin**:
-  - `bot.py`: Mã nguồn chính chạy trên môi trường production. Sử dụng slash commands (`discord.app_commands`) và event `on_message` để phát hiện vi phạm, quản lý trạng thái thực thi per-guild.
-  - `opensrc.py`: Phiên bản mã nguồn mở hóa của `bot.py`, ẩn token nhạy cảm và thay thế ID cấu hình bằng dữ liệu mẫu.
-  - `testbot.py`: Bản thử nghiệm tiền thân dùng tiền tố lệnh `!` (`commands.Bot`) và cờ `isDebugMode` để kiểm tra logic ban và uptime.
-  - `requirements.txt`: Danh sách thư viện phụ thuộc (`discord.py`, `py-cord`).
+- **Mục đích**: Bot Discord chuyên dụng đóng vai trò bẫy lọc spam (honeypot). Tự động phát hiện tin nhắn gửi vào kênh chỉ định được cấu hình persistent per-guild trong SQLite, xử lý người dùng vi phạm theo chính sách và xuất báo cáo giám sát.
+- **Cấu trúc tệp tin & Kiến trúc**:
+  - `bot.py`: Lớp `BibcBot` khởi chạy chính, quản lý vòng đời ứng dụng, khởi tạo database và đồng bộ command tree.
+  - `config.py`: Tải cấu hình an toàn từ biến môi trường qua `python-dotenv` (`DISCORD_TOKEN`, `DATABASE_PATH`).
+  - `database.py`: Quản lý kết nối SQLite và schema bảng `guild_configs`, `ban_records`.
+  - `messageWatcher.py`: Pipeline lọc và điều phối sự kiện tin nhắn với cache chống lặp bounded.
+  - `cogs/`: Slash command cogs gồm `cogs/config.py` (`/config`) và `cogs/status.py` (`/status`).
+  - `models/`: Định nghĩa các cấu trúc dữ liệu (`GuildConfig`, `BanRecord`).
+  - `repositories/`: Tầng truy xuất cơ sở dữ liệu (`GuildConfigRepository`, `BanRepository`).
+  - `services/`: Tầng xử lý nghiệp vụ (`GuildConfigService`, `BanService`, `ReportService`, `StatisticsService`).
+  - `utils/`: Các hàm tiện ích định dạng log và tính toán mốc thời gian UTC (`logging.py`, `time.py`).
+  - `docs/`: Chứa tài liệu hướng dẫn triển khai (`production.md`) và đặc tả thiết kế refactor.
+  - `tests/`: Bộ kiểm thử tự động toàn diện (unit tests, integration tests, lifecycle tests).
+  - `requirements.txt`: Danh sách thư viện phụ thuộc (`discord.py`, `py-cord`, `python-dotenv`, `pytest`, `pytest-asyncio`).
 - **Cơ chế vận hành chính**:
-  - **Giám sát tin nhắn (`on_message`)**: Khi phát hiện tin nhắn trong kênh thuộc danh sách đen `ChID`, kiểm tra chế độ chính sách của server.
-  - **Chế độ `Enforced`**: Thực thi ban thành viên vi phạm (`delete_message_seconds=300`, lý do cấu hình sẵn), lưu thông tin vào danh sách `bannedUsers` trong bộ nhớ runtime.
-  - **Chế độ `LogOnly`**: Chỉ ghi nhận log ra console, không thực hiện hành động cấm.
-  - **Báo cáo sự kiện**: Gửi thông báo chi tiết dạng Embed tới các kênh cấu hình trong `reportChID`.
+  - **Giám sát tin nhắn (`MessageWatcher`)**: Lọc bỏ bot, DM, guild chưa cấu hình hoặc kênh không khớp watch channel.
+  - **Chế độ `enforced`**: Ban thành viên vi phạm (`delete_message_seconds=300`, lý do cấu hình sẵn), lưu bản ghi `banned` vào SQLite.
+  - **Chế độ `permissive`**: Lưu bản ghi `detected` vào SQLite, không ban thành viên.
+  - **Báo cáo sự kiện (`ReportService`)**: Gửi thông báo chi tiết dạng Embed tới kênh báo cáo của guild (hoạt động độc lập, không ảnh hưởng kết quả ban).
 - **Hệ thống lệnh Slash Commands**:
-  - `/epedit`: Bật/tắt chính sách thực thi giữa `LogOnly` và `Enforced` (yêu cầu quyền Administrator).
-  - `/getpolicy`: Truy vấn chính sách hiện tại của guild.
-  - `/getban`: Xem danh sách tài khoản đã bị bot xử lý trong phiên chạy.
-  - `/info`: Hiển thị thông tin bot, thời gian hoạt động (uptime), chính sách hiện tại và số lượng tài khoản đã xử lý.
+  - `/config watchchannel <channel>`: Cấu hình kênh bẫy spam cho server (yêu cầu quyền Administrator).
+  - `/config policy <enforced|permissive>`: Thiết lập chính sách thực thi cho server (yêu cầu quyền Administrator).
+  - `/status`: Hiển thị thông tin bot, uptime, chính sách server hiện tại và thống kê số lượng đã xử lý (Tổng / Tháng / Tuần).
 
 ---
 
