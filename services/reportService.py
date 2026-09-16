@@ -73,6 +73,8 @@ class ReportService:
                 contentParts.append("\n".join(f"Attached file: {m.filename}" for m in nonImageMedia))
 
         if not contentParts:
+            if mediaList:
+                return ""
             return "<empty>"
 
         formatted = "\n\n".join(contentParts) if len(contentParts) > 1 else contentParts[0]
@@ -105,7 +107,8 @@ class ReportService:
         embed = discord.Embed(title="BanInBlacklistedChannels Event Log", color=color)
         embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
         embed.add_field(name="Status", value=statusDisplay, inline=False)
-        embed.add_field(name="Message Content", value=formattedContent, inline=False)
+        if formattedContent:
+            embed.add_field(name="Message Content", value=formattedContent, inline=False)
         embed.set_footer(text=currentTimeStr)
 
         imageMedia = [m for m in mediaItems if m.isImage]
@@ -144,11 +147,13 @@ class ReportService:
         container.add_item(TextDisplay("## BanInBlacklistedChannels Event Log"))
         container.add_item(Separator())
 
-        bodyText = (
-            f"**User:** {message.author.mention} ({message.author.id})\n"
-            f"**Status:** {statusDisplay}\n"
-            f"**Message Content:** {formattedContent}"
-        )
+        bodyLines = [
+            f"**User:** {message.author.mention} ({message.author.id})",
+            f"**Status:** {statusDisplay}"
+        ]
+        if formattedContent:
+            bodyLines.append(f"**Message Content:** {formattedContent}")
+        bodyText = "\n".join(bodyLines)
         container.add_item(TextDisplay(bodyText))
 
         imageMedia = [m for m in mediaItems if m.isImage]

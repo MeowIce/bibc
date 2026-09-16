@@ -71,7 +71,13 @@ def testFormatMessageContentEmptyWithImageOnly(mockMessage):
     service = ReportService()
     msg = mockMessage(content="")
     media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
-    assert service.formatMessageContent(msg, media) == "<empty>"
+    assert service.formatMessageContent(msg, media) == ""
+
+def testFormatMessageContentNoContentNoMedia(mockMessage):
+    service = ReportService()
+    msg = mockMessage(content="")
+    assert service.formatMessageContent(msg) == "<empty>"
+    assert service.formatMessageContent(msg, []) == "<empty>"
 
 def testFormatMessageContentWithNonImageMedia(mockMessage):
     service = ReportService()
@@ -109,6 +115,30 @@ def testCreateReportLayoutViewSingleImage(mockMessage):
     assert gallery is not None
     assert len(gallery["items"]) == 1
     assert gallery["items"][0]["media"]["url"] == "attachment://0_photo.png"
+
+def testCreateReportLayoutViewImageOnlyNoMessageContentField(mockMessage):
+    service = ReportService()
+    msg = mockMessage(content="")
+    media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
+    config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
+    
+    view = service.createReportLayoutView(config, msg, "banned", "reason", media)
+    components = view.to_components()
+    subComponents = components[0]["components"]
+    textContents = [c.get("content", "") for c in subComponents if "content" in c]
+    assert not any("Message Content" in c for c in textContents)
+    assert not any("<empty>" in c for c in textContents)
+
+def testCreateReportEmbedImageOnlyNoMessageContentField(mockMessage):
+    service = ReportService()
+    msg = mockMessage(content="")
+    media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
+    config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
+    
+    embed = service.createReportEmbed(config, msg, "banned", "reason", media)
+    fieldNames = [f.name for f in embed.fields]
+    assert "Message Content" not in fieldNames
+    assert embed.image.url == "attachment://0_photo.png"
 
 def testCreateReportLayoutViewMultipleImagesGallery(mockMessage):
     service = ReportService()
