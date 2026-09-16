@@ -116,7 +116,7 @@ def testCreateReportLayoutViewSingleImage(mockMessage):
     assert len(gallery["items"]) == 1
     assert gallery["items"][0]["media"]["url"] == "attachment://0_photo.png"
 
-def testCreateReportLayoutViewImageOnlyNoMessageContentField(mockMessage):
+def testCreateReportLayoutViewImageOnlyShowsMessageContentWithoutEmpty(mockMessage):
     service = ReportService()
     msg = mockMessage(content="")
     media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
@@ -126,19 +126,41 @@ def testCreateReportLayoutViewImageOnlyNoMessageContentField(mockMessage):
     components = view.to_components()
     subComponents = components[0]["components"]
     textContents = [c.get("content", "") for c in subComponents if "content" in c]
-    assert not any("Message Content" in c for c in textContents)
+    assert any("**Message Content:**" in c for c in textContents)
     assert not any("<empty>" in c for c in textContents)
 
-def testCreateReportEmbedImageOnlyNoMessageContentField(mockMessage):
+def testCreateReportEmbedImageOnlyShowsMessageContentWithoutEmpty(mockMessage):
     service = ReportService()
     msg = mockMessage(content="")
     media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
     config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
     
     embed = service.createReportEmbed(config, msg, "banned", "reason", media)
-    fieldNames = [f.name for f in embed.fields]
-    assert "Message Content" not in fieldNames
+    contentField = next((f for f in embed.fields if f.name == "Message Content"), None)
+    assert contentField is not None
+    assert contentField.value == "\u200b"
     assert embed.image.url == "attachment://0_photo.png"
+
+def testCreateReportLayoutViewNoContentNoMediaShowsEmpty(mockMessage):
+    service = ReportService()
+    msg = mockMessage(content="")
+    config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
+    
+    view = service.createReportLayoutView(config, msg, "banned", "reason", mediaList=[])
+    components = view.to_components()
+    subComponents = components[0]["components"]
+    textContents = [c.get("content", "") for c in subComponents if "content" in c]
+    assert any("**Message Content:** <empty>" in c for c in textContents)
+
+def testCreateReportEmbedNoContentNoMediaShowsEmpty(mockMessage):
+    service = ReportService()
+    msg = mockMessage(content="")
+    config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
+    
+    embed = service.createReportEmbed(config, msg, "banned", "reason", mediaList=[])
+    contentField = next((f for f in embed.fields if f.name == "Message Content"), None)
+    assert contentField is not None
+    assert contentField.value == "<empty>"
 
 def testCreateReportLayoutViewMultipleImagesGallery(mockMessage):
     service = ReportService()

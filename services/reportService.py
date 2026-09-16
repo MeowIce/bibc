@@ -107,8 +107,7 @@ class ReportService:
         embed = discord.Embed(title="BanInBlacklistedChannels Event Log", color=color)
         embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
         embed.add_field(name="Status", value=statusDisplay, inline=False)
-        if formattedContent:
-            embed.add_field(name="Message Content", value=formattedContent, inline=False)
+        embed.add_field(name="Message Content", value=formattedContent or "\u200b", inline=False)
         embed.set_footer(text=currentTimeStr)
 
         imageMedia = [m for m in mediaItems if m.isImage]
@@ -147,13 +146,12 @@ class ReportService:
         container.add_item(TextDisplay("## BanInBlacklistedChannels Event Log"))
         container.add_item(Separator())
 
-        bodyLines = [
-            f"**User:** {message.author.mention} ({message.author.id})",
-            f"**Status:** {statusDisplay}"
-        ]
-        if formattedContent:
-            bodyLines.append(f"**Message Content:** {formattedContent}")
-        bodyText = "\n".join(bodyLines)
+        messageContentLine = f"**Message Content:** {formattedContent}" if formattedContent else "**Message Content:**"
+        bodyText = (
+            f"**User:** {message.author.mention} ({message.author.id})\n"
+            f"**Status:** {statusDisplay}\n"
+            f"{messageContentLine}"
+        )
         container.add_item(TextDisplay(bodyText))
 
         imageMedia = [m for m in mediaItems if m.isImage]
