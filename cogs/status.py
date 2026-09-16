@@ -15,8 +15,8 @@ except ImportError:
 from services.statisticsService import StatisticsService
 from services.guildConfigService import GuildConfigService
 
-def formatActivityString(serverCount: int, memberCount: int) -> str:
-    return f"Status type: watching, {serverCount} servers - {memberCount} members"
+def formatActivityString(serverCount: int, memberCount: int, bannedCount: int = 0) -> str:
+    return f"{serverCount} servers, {memberCount} members, banned {bannedCount} accounts"
 
 def calculateMemberCount(guilds) -> int:
     total = 0
@@ -25,11 +25,22 @@ def calculateMemberCount(guilds) -> int:
     return total
 
 async def updateBotStatus(bot):
-    serverCount = len(bot.guilds)
-    memberCount = calculateMemberCount(bot.guilds)
-    statusText = formatActivityString(serverCount, memberCount)
-    activity = discord.CustomActivity(name=statusText)
-    await bot.change_presence(activity=activity)
+    guilds = getattr(bot, "guilds", [])
+    if not isinstance(guilds, (list, tuple, set)):
+        guilds = []
+    serverCount = len(guilds)
+    memberCount = calculateMemberCount(guilds)
+    statisticsService = getattr(bot, "statisticsService", None)
+    bannedCount = 0
+    if statisticsService and hasattr(statisticsService, "countTotal"):
+        try:
+            bannedCount = statisticsService.countTotal()
+        except Exception:
+            bannedCount = 0
+    statusText = formatActivityString(serverCount, memberCount, bannedCount)
+    activity = discord.Activity(type=discord.ActivityType.watching, name=statusText)
+    if hasattr(bot, "change_presence"):
+        await bot.change_presence(activity=activity)
 
 class StatusCog(commands.Cog):
     def __init__(

@@ -5,6 +5,7 @@ import discord
 from services.guildConfigService import GuildConfigService
 from services.banService import BanService, BanResult
 from services.reportService import ReportService
+from cogs.status import updateBotStatus
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,11 @@ class MessageWatcher:
                 logger.warning(f"Unexpected error deleting message {message.id}: {e}")
 
             banResult = await self.banService.handleMessage(message, guildConfig)
+            if banResult.action == "banned":
+                try:
+                    await updateBotStatus(self.bot)
+                except Exception as e:
+                    logger.warning(f"Failed to update bot status after ban: {e}")
             await self.reportService.sendEventReport(
                 guildConfig=guildConfig,
                 message=message,

@@ -1,18 +1,20 @@
+import discord
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 try:
-    from cogs.status import formatActivityString, StatusCog, calculateMemberCount
+    from cogs.status import formatActivityString, StatusCog, calculateMemberCount, updateBotStatus
 except ImportError:
     formatActivityString = None
     StatusCog = None
     calculateMemberCount = None
+    updateBotStatus = None
 
 def testFormatActivityString():
     assert formatActivityString is not None
-    result = formatActivityString(serverCount=5, memberCount=250)
-    assert result == "Status type: watching, 5 servers - 250 members"
+    result = formatActivityString(serverCount=5, memberCount=250, bannedCount=12)
+    assert result == "5 servers, 250 members, banned 12 accounts"
 
 def testCalculateMemberCount():
     assert calculateMemberCount is not None
@@ -21,6 +23,26 @@ def testCalculateMemberCount():
     guild2 = MagicMock()
     guild2.member_count = 150
     assert calculateMemberCount([guild1, guild2]) == 250
+
+@pytest.mark.asyncio
+async def testUpdateBotStatus():
+    assert updateBotStatus is not None
+    bot = MagicMock()
+    bot.change_presence = AsyncMock()
+    guild1 = MagicMock()
+    guild1.member_count = 100
+    guild2 = MagicMock()
+    guild2.member_count = 150
+    bot.guilds = [guild1, guild2]
+    bot.statisticsService = MagicMock()
+    bot.statisticsService.countTotal.return_value = 8
+    
+    await updateBotStatus(bot)
+    bot.change_presence.assert_awaited_once()
+    activity = bot.change_presence.call_args.kwargs.get("activity")
+    assert activity is not None
+    assert activity.type == discord.ActivityType.watching
+    assert activity.name == "2 servers, 250 members, banned 8 accounts"
 
 @pytest.mark.asyncio
 async def testStatusCommandOutput():
