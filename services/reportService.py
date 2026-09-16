@@ -10,6 +10,40 @@ class ReportService:
     def __init__(self, maxContentLength: int = 500):
         self.maxContentLength = maxContentLength
 
+    def formatMessageContent(self, message: discord.Message) -> str:
+        boundedContent = truncateContent(getattr(message, "content", ""), self.maxContentLength)
+        contentParts = []
+        if boundedContent:
+            contentParts.append(boundedContent)
+
+        mediaParts = []
+        attachments = getattr(message, "attachments", [])
+        if attachments:
+            for attachment in attachments:
+                url = getattr(attachment, "url", None)
+                filename = getattr(attachment, "filename", "attachment")
+                if url:
+                    mediaParts.append(f"[{filename}]({url})")
+
+        stickers = getattr(message, "stickers", [])
+        if stickers:
+            for sticker in stickers:
+                url = getattr(sticker, "url", None)
+                name = getattr(sticker, "name", "sticker")
+                if url:
+                    mediaParts.append(f"[{name}]({url})")
+
+        if mediaParts:
+            contentParts.append("\n".join(mediaParts))
+
+        if not contentParts:
+            return "<empty>"
+
+        formatted = "\n\n".join(contentParts) if len(contentParts) > 1 else contentParts[0]
+        if len(formatted) > 1024:
+            return formatted[:1021] + "..."
+        return formatted
+
     async def sendEventReport(
         self,
         guildConfig: GuildConfig,
@@ -26,7 +60,7 @@ class ReportService:
             logger.warning(f"Report channel {guildConfig.reportChannelId} not found in guild {message.guild.id}.")
             return False
 
-        boundedContent = truncateContent(message.content, self.maxContentLength)
+        formattedContent = self.formatMessageContent(message)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
 
         if action == "banned":
@@ -39,7 +73,7 @@ class ReportService:
         embed = discord.Embed(title="BanInBlacklistedChannels Event Log")
         embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
         embed.add_field(name="Status", value=statusDisplay, inline=False)
-        embed.add_field(name="Message Content", value=boundedContent if boundedContent else "<empty>", inline=False)
+        embed.add_field(name="Message Content", value=formattedContent, inline=False)
         embed.set_footer(text=currentTimeStr)
 
         try:

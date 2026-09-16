@@ -45,10 +45,12 @@ def mockChannel():
 
 @pytest.fixture
 def mockMessage(mockUser, mockGuild, mockChannel):
-    def createMessage(content="spam message", channelId=11111, guildId=99999, authorId=12345, isBot=False, isDm=False):
+    def createMessage(content="spam message", channelId=11111, guildId=99999, authorId=12345, isBot=False, isDm=False, attachments=None, stickers=None):
         message = MagicMock()
         message.id = 77777
         message.content = content
+        message.attachments = attachments or []
+        message.stickers = stickers or []
         message.delete = AsyncMock()
         author = mockUser(userId=authorId, name=f"user_{authorId}", isBot=isBot)
         message.author = author
