@@ -1,2 +1,4 @@
-discord.py
-py-cord
+discord.py>=2.6.0
+python-dotenv
+pytest
+pytest-asyncio

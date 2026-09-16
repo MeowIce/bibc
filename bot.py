@@ -1,148 +1,117 @@
-# Copyright (c) 2026 MeowIce
-
-# Permission is granted to use, modify, and distribute this software for non-commercial purposes only.
-# Selling this software or any derivative works is prohibited without explicit written permission.
-# Removing or altering author credits is prohibited.
-
+from datetime import datetime, timezone
+import logging
 import discord
-from discord.ext import commands
 from discord import app_commands
-import datetime
+from discord.ext import commands
 
-# ==== CONFIG ====
-botToken = ""
-ChID = [123456789, 987654321]
-reportChID = [12345654321, 65432123456]
-actionReason = "gửi tin nhắn vào kênh lọc spam"
-isLogOnlyMode = 0
-# =================
+from config import loadConfig, AppConfig
+from database import Database
+from repositories.guildConfigRepository import GuildConfigRepository
+from repositories.banRepository import BanRepository
+from services.guildConfigService import GuildConfigService
+from services.banService import BanService
+from services.reportService import ReportService
+from services.statisticsService import StatisticsService
+from messageWatcher import MessageWatcher
+from cogs.config import ConfigCog
+from cogs.status import StatusCog, updateBotStatus
+from utils.logging import configureLogging
 
-PolicyModes = {}
-bannedUsers = []
-startTime = datetime.datetime.now(datetime.timezone.utc)
+logger = logging.getLogger("bibc")
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+class BibcBot(commands.Bot):
+    def __init__(self, config: AppConfig):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.members = True
+        super().__init__(command_prefix="!", intents=intents)
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+        self.config = config
+        self.startTime = datetime.now(timezone.utc)
+        self.database = Database(config.databasePath)
+        self.guildConfigRepo = GuildConfigRepository(self.database)
+        self.guildConfigService = GuildConfigService(self.guildConfigRepo)
+        self.banRepo = BanRepository(self.database)
+        self.banService = BanService(self.banRepo, startTime=self.startTime)
+        self.reportService = ReportService()
+        self.statisticsService = StatisticsService(self.banRepo)
+        self.messageWatcher = MessageWatcher(
+            self,
+            self.guildConfigService,
+            self.banService,
+            self.reportService
+        )
+        self._setupTreeErrorHandler()
 
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print("This is BanInBlacklistedChannels (BIBC), developed by MeowIce. Version 2.0")
-    print("Source code: https://github.com/MeowIce/bibc")
-    print(f"Logged in as {bot.user} (ID: {bot.user.id}).")
-    print("Monitoring total channels: " + str(len(bot.guilds)) + " | " + "Monitoring total users: " + str(len(bot.users)))
-    print(f"The current Execution Policy is set to: {'LogOnly' if isLogOnlyMode else 'Enforced'}")
-    print("------")
-    for guild in bot.guilds:
-        PolicyModes[guild.id] = isLogOnlyMode
+    def _setupTreeErrorHandler(self):
+        async def onTreeError(interaction: discord.Interaction, error: app_commands.AppCommandError):
+            if isinstance(error, app_commands.CommandNotFound):
+                commandName = getattr(error, "name", "unknown")
+                logger.warning(f"Ignored outdated application command '{commandName}' from user {interaction.user.id}")
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("Lệnh này không còn tồn tại hoặc đã lỗi thời.", ephemeral=True)
+                return
+            logger.exception(f"Unhandled error in command tree: {error}")
 
-@bot.tree.command(name="epedit", description="Change execution policy.")
-@app_commands.default_permissions(administrator=True)
-async def toggleLogOnly(interaction: discord.Interaction):
-    guildId = interaction.guild_id
-    if guildId is None:
-        await interaction.response.send_message("Server only.")
-        return
-        
-    isLogOnlyMode = PolicyModes.get(guildId, False)
-    PolicyModes[guildId] = not isLogOnlyMode
-    isLogOnlyMode = PolicyModes[guildId]
-    
-    await interaction.response.send_message(f"Execution Policy has changed to {'`LogOnly`' if isLogOnlyMode else '`Enforced`'}")
+        self.tree.on_error = onTreeError
 
-@bot.tree.command(name="getpolicy", description="Query current policy.")
-async def getpolicy(interaction: discord.Interaction):
-    guildId = interaction.guild_id
-    if guildId is None:
-        await interaction.response.send_message("Server only.")
-        return
-        
-    isLogOnlyMode = PolicyModes.get(guildId, False)
-    await interaction.response.send_message(f"The current policy was set to: {'`LogOnly`' if isLogOnlyMode else '`Enforced`'}")
+    async def setup_hook(self):
+        self.database.initialize()
+        await self.add_cog(ConfigCog(self.guildConfigService))
+        await self.add_cog(
+            StatusCog(
+                self,
+                self.statisticsService,
+                self.guildConfigService,
+                self.startTime
+            )
+        )
+        await self.tree.sync()
+        logger.info("Application setup complete, database initialized, and global command tree synced.")
 
-@bot.tree.command(name="getban", description="Query users banned during bot runtime.")
-async def getBan(interaction: discord.Interaction):
-    if not bannedUsers:
-        await interaction.response.send_message("No data.")
-        return
-    bannedList = ", ".join(bannedUsers)
-    await interaction.response.send_message(f"Banned during runtime: {bannedList}.")
+    async def on_ready(self):
+        divider = "=" * 60
+        readyBanner = (
+            f"\n{divider}\n"
+            f"  BIBC BOT ONLINE & OPERATIONAL\n"
+            f"  Bot User  : {self.user} (ID: {self.user.id})\n"
+            f"  Guilds    : {len(self.guilds)} connected\n"
+            f"  Database  : {self.config.databasePath}\n"
+            f"  Watcher   : Honeypot monitoring active\n"
+            f"{divider}"
+        )
+        logger.info(readyBanner)
 
-@bot.tree.command(name="info", description="About BIBC...")
-async def info(interaction: discord.Interaction):
-    currentDuration = datetime.datetime.now(datetime.timezone.utc) - startTime
-    totalSeconds = int(currentDuration.total_seconds())
-    hours, remainder = divmod(totalSeconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    days, hours = divmod(hours, 24)
-    
-    guildId = interaction.guild_id
-    currentPolicy = "N/A (DMs)"
-    if guildId is not None:
-        isLogOnlyMode = PolicyModes.get(guildId, False)
-        currentPolicy = "`LogOnly`" if isLogOnlyMode else "`Enforced`"
-
-    bannedCount = len(bannedUsers)
-    
-    infoEmbed = discord.Embed(title="About BanInBlacklistedChannels Bot...")
-    infoEmbed.add_field(name="Bot ID", value=f"`{str(bot.user.id)}`", inline=False)
-    infoEmbed.add_field(name="Execution Policy", value=currentPolicy, inline=False)
-    infoEmbed.add_field(name="Uptime", value=f"{days}d {hours}h {minutes}m {seconds}s", inline=False)
-    infoEmbed.add_field(name="Source Code", value="https://github.com/MeowIce/bibc", inline=False)
-    infoEmbed.add_field(name="Banned Since Runtime", value=str(bannedCount), inline=False)
-    
-    await interaction.response.send_message(embed=infoEmbed)
-@bot.event
-async def on_message(message: discord.Message):
-    if message.author == bot.user:
-        return
-    
-    if message.channel.id in ChID:
-        currentTimeStr = datetime.datetime.now().strftime('%H:%M:%S %d/%m/%Y')
-        print(f"{currentTimeStr} | Message detected from @{message.author} in channel '#{message.channel.name}' (ID: {message.channel.id}). Content: {message.content}")
-        
-        guildId = message.guild.id if message.guild else None
-        if guildId is None:
-            await bot.process_commands(message)
-            return
-            
-        isLogOnlyMode = PolicyModes.get(guildId, False)
-        actionTaken = "Logged"
-        
-        if isLogOnlyMode:
-            print(f"{currentTimeStr} | No actions were taken for @{message.author} because run mode is set to LogOnly for server {guildId}.")
-        else:
+        for guild in self.guilds:
             try:
-                await message.guild.ban(
-                    message.author,
-                    reason=actionReason,
-                    delete_message_seconds=300
-                )
-                print(f"{currentTimeStr} | Action taken for @{message.author}")
-                bannedUsers.append(f"{message.author} (ID: {message.author.id})")
-                actionTaken = "Banned"
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
             except Exception as e:
-                print(f"{currentTimeStr} | Failed to take action for {message.author}: {e}")
-                actionTaken = f"Failed: {e}"
+                logger.warning(f"Failed to clear old guild commands for guild {guild.id}: {e}")
+        await updateBotStatus(self)
 
-        reportChannel = None
-        for channelId in reportChID:
-            reportChannel = message.guild.get_channel(channelId)
-            if reportChannel:
-                break
+    async def on_message(self, message: discord.Message):
+        await self.messageWatcher.handleMessage(message)
+        await self.process_commands(message)
 
-        if reportChannel:
-            reportEmbed = discord.Embed(title="BanInBlacklistedChannels Event Log")
-            reportEmbed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
-            reportEmbed.add_field(name="Status", value=actionTaken, inline=False)
-            reportEmbed.add_field(name="Content", value=message.content, inline=False)
-            reportEmbed.set_footer(text=currentTimeStr)
-            await reportChannel.send(embed=reportEmbed)
-                
-    await bot.process_commands(message)
+    async def close(self):
+        try:
+            self.database.close()
+            logger.info("Database connection closed cleanly.")
+        except Exception as e:
+            logger.exception(f"Error closing database: {e}")
+        finally:
+            await super().close()
 
-print("BIBC is starting...")
-bot.run(botToken, log_handler=None)
+def main():
+    configureLogging()
+    logger.info("Starting BIBC v3.0...")
+    config = loadConfig()
+    bot = BibcBot(config)
+    try:
+        bot.run(config.discordToken, log_handler=None)
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Process terminated by signal.")
+
+if __name__ == "__main__":
+    main()
