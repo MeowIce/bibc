@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 try:
-    from discord.ui import LayoutView, Container, TextDisplay, Separator
+    from discord.ui import LayoutView, Container, TextDisplay, Separator, ActionRow, Button
     hasComponentsV2 = True
 except ImportError:
     hasComponentsV2 = False
@@ -12,6 +12,8 @@ except ImportError:
     Container = None
     TextDisplay = None
     Separator = None
+    ActionRow = None
+    Button = None
 
 from services.statisticsService import StatisticsService
 from services.guildConfigService import GuildConfigService
@@ -183,7 +185,8 @@ class StatusCog(commands.Cog):
             container.add_item(TextDisplay("## Invite BanInBlacklistedChannels Bot"))
             container.add_item(Separator())
             container.add_item(TextDisplay("Protect your server against spam and automated raids by inviting BIBC into your channels."))
-            container.add_item(discord.ui.Button(label="Invite Bot", style=discord.ButtonStyle.link, url=inviteUrl))
+            actionRow = ActionRow(Button(label="Invite Bot", style=discord.ButtonStyle.link, url=inviteUrl))
+            container.add_item(actionRow)
             container.add_item(Separator())
             container.add_item(TextDisplay("*Note: Ensure the bot's role is placed above regular members.*"))
             view.add_item(container)

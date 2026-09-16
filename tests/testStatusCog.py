@@ -153,6 +153,8 @@ async def testInviteCommandOutput():
     subComponents = components[0]["components"]
     textContents = [c.get("content", "") for c in subComponents if "content" in c]
     assert any("Invite BanInBlacklistedChannels Bot" in c for c in textContents)
-    buttonComponent = next((c for c in subComponents if c.get("type") == 2 or "url" in c), None)
+    actionRow = next((c for c in subComponents if c.get("type") == 1), None)
+    assert actionRow is not None
+    buttonComponent = next((b for b in actionRow.get("components", []) if b.get("type") == 2 or "url" in b), None)
     assert buttonComponent is not None
     assert "993329384499208252" in buttonComponent.get("url", "")
