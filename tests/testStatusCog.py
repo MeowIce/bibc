@@ -58,6 +58,7 @@ async def testStatusCommandOutput():
     components = view.to_components()
     assert len(components) == 1
     assert components[0]["type"] == 17
+    assert components[0].get("accent_color") is None
     
     containerComponents = components[0]["components"]
     contents = [c.get("content", "") for c in containerComponents if "content" in c]
@@ -65,3 +66,32 @@ async def testStatusCommandOutput():
     assert any("`993329384499208252`" in c for c in contents)
     assert any("`enforced`" in c for c in contents)
     assert any("10 / 5 / 2" in c for c in contents)
+
+@pytest.mark.asyncio
+async def testAboutCommandOutput():
+    interaction = MagicMock()
+    interaction.guild_id = 12345
+    interaction.guild = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    
+    bot = MagicMock()
+    bot.user.id = 993329384499208252
+    bot.guilds = []
+    
+    statService = MagicMock()
+    statService.countThisWeek.return_value = 0
+    statService.countThisMonth.return_value = 0
+    statService.countTotal.return_value = 0
+    
+    configService = MagicMock()
+    configService.getConfig.return_value = None
+    
+    startTime = datetime.now(timezone.utc)
+    cog = StatusCog(bot=bot, statisticsService=statService, guildConfigService=configService, startTime=startTime)
+    await cog.about.callback(cog, interaction)
+    
+    interaction.response.send_message.assert_awaited_once()
+    view = interaction.response.send_message.call_args.kwargs.get("view")
+    assert view is not None
+    components = view.to_components()
+    assert components[0].get("accent_color") is None

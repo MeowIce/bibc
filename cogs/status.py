@@ -78,7 +78,7 @@ class StatusCog(commands.Cog):
 
         if hasComponentsV2:
             view = LayoutView()
-            container = Container(accent_color=discord.Color.blurple())
+            container = Container()
             container.add_item(TextDisplay("## About BanInBlacklistedChannels Bot..."))
             container.add_item(Separator())
 
@@ -101,7 +101,7 @@ class StatusCog(commands.Cog):
             view.add_item(container)
             await interaction.response.send_message(view=view)
         else:
-            infoEmbed = discord.Embed(title="About BanInBlacklistedChannels Bot...", color=discord.Color.blurple())
+            infoEmbed = discord.Embed(title="About BanInBlacklistedChannels Bot...")
             infoEmbed.add_field(name="Developer", value=self.developerId, inline=False)
             infoEmbed.add_field(name="Bot ID", value=f"`{botUserId}`", inline=False)
             infoEmbed.add_field(name="Execution Policy", value=currentPolicy, inline=False)
@@ -110,6 +110,10 @@ class StatusCog(commands.Cog):
             infoEmbed.add_field(name="Banned (Total / Month / Week)", value=f"{totalBans} / {monthBans} / {weekBans}", inline=False)
             infoEmbed.set_footer(text="Want me to protect your server ?\nJoin the Support Server or DM the Dev to get started !")
             await interaction.response.send_message(embed=infoEmbed)
+
+    @app_commands.command(name="about", description="About BanInBlacklistedChannels Bot...")
+    async def about(self, interaction: discord.Interaction):
+        await self.status.callback(self, interaction)
 
 async def setup(bot):
     statisticsService = getattr(bot, "statisticsService", None)

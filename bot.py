@@ -70,8 +70,6 @@ class BibcBot(commands.Bot):
         logger.info("Application setup complete, database initialized, and global command tree synced.")
 
     async def on_ready(self):
-        logger.info(f"Logged in as {self.user} (ID: {self.user.id}).")
-        logger.info(f"Monitoring total guilds: {len(self.guilds)}.")
         for guild in self.guilds:
             try:
                 self.tree.clear_commands(guild=guild)
@@ -79,6 +77,18 @@ class BibcBot(commands.Bot):
             except Exception as e:
                 logger.warning(f"Failed to clear old guild commands for guild {guild.id}: {e}")
         await updateBotStatus(self)
+
+        divider = "=" * 60
+        readyBanner = (
+            f"\n{divider}\n"
+            f"  BIBC BOT ONLINE & OPERATIONAL\n"
+            f"  Bot User  : {self.user} (ID: {self.user.id})\n"
+            f"  Guilds    : {len(self.guilds)} connected\n"
+            f"  Database  : {self.config.databasePath}\n"
+            f"  Watcher   : Honeypot monitoring active\n"
+            f"{divider}"
+        )
+        logger.info(readyBanner)
 
     async def on_message(self, message: discord.Message):
         await self.messageWatcher.handleMessage(message)
