@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datetime import datetime, timezone
 import logging
 import discord
 from services.guildConfigService import GuildConfigService
@@ -54,6 +55,16 @@ class MessageWatcher:
             if message.channel.id != guildConfig.watchChannelId:
                 return False
 
+            botStartTime = getattr(self.bot, "startTime", None)
+            messageCreatedAt = getattr(message, "created_at", None)
+            if isinstance(botStartTime, datetime) and isinstance(messageCreatedAt, datetime):
+                if messageCreatedAt.tzinfo is None:
+                    messageCreatedAt = messageCreatedAt.replace(tzinfo=timezone.utc)
+                if botStartTime.tzinfo is None:
+                    botStartTime = botStartTime.replace(tzinfo=timezone.utc)
+                if messageCreatedAt < botStartTime:
+                    return False
+
             mediaList = await self.reportService.collectMedia(message)
             try:
                 await message.delete()
@@ -75,11 +86,19 @@ class MessageWatcher:
             logger.exception(f"Unexpected error handling message {getattr(message, 'id', None)}: {e}")
             return False
 
-async def handleMessageEvent(message: discord.Message, watchedChannelId: int, policy: str) -> bool:
+async def handleMessageEvent(message: discord.Message, watchedChannelId: int, policy: str, startTime: datetime | None = None) -> bool:
     if message.author.bot or message.guild is None:
         return False
     if message.channel.id != watchedChannelId:
         return False
+    messageCreatedAt = getattr(message, "created_at", None)
+    if isinstance(startTime, datetime) and isinstance(messageCreatedAt, datetime):
+        if messageCreatedAt.tzinfo is None:
+            messageCreatedAt = messageCreatedAt.replace(tzinfo=timezone.utc)
+        if startTime.tzinfo is None:
+            startTime = startTime.replace(tzinfo=timezone.utc)
+        if messageCreatedAt < startTime:
+            return False
     try:
         await message.delete()
     except Exception:

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 import discord
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -81,3 +82,36 @@ async def testBanServiceHierarchySkip(mockMessage):
     
     assert result.action == "failed"
     msg.guild.ban.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def testBanServiceDeleteMessageSecondsWithStartTime(mockMessage):
+    assert BanService is not None
+    msg = mockMessage()
+    guildConfig = GuildConfig(guildId=msg.guild.id, watchChannelId=msg.channel.id, policy="enforced")
+    
+    banRepo = MagicMock()
+    recentStartTime = datetime.now(timezone.utc) - timedelta(seconds=45)
+    service = BanService(banRepository=banRepo, startTime=recentStartTime)
+    result = await service.handleMessage(msg, guildConfig)
+    
+    assert result.action == "banned"
+    calledArgs = msg.guild.ban.call_args
+    assert calledArgs is not None
+    deleteSeconds = calledArgs.kwargs["delete_message_seconds"]
+    assert 40 <= deleteSeconds <= 50
+
+@pytest.mark.asyncio
+async def testBanServiceDeleteMessageSecondsCappedAt300(mockMessage):
+    assert BanService is not None
+    msg = mockMessage()
+    guildConfig = GuildConfig(guildId=msg.guild.id, watchChannelId=msg.channel.id, policy="enforced")
+    
+    banRepo = MagicMock()
+    oldStartTime = datetime.now(timezone.utc) - timedelta(hours=2)
+    service = BanService(banRepository=banRepo, startTime=oldStartTime)
+    result = await service.handleMessage(msg, guildConfig)
+    
+    assert result.action == "banned"
+    calledArgs = msg.guild.ban.call_args
+    assert calledArgs is not None
+    assert calledArgs.kwargs["delete_message_seconds"] == 300

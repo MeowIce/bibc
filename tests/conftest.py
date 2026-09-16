@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
@@ -45,13 +46,14 @@ def mockChannel():
 
 @pytest.fixture
 def mockMessage(mockUser, mockGuild, mockChannel):
-    def createMessage(content="spam message", channelId=11111, guildId=99999, authorId=12345, isBot=False, isDm=False, attachments=None, stickers=None):
+    def createMessage(content="spam message", channelId=11111, guildId=99999, authorId=12345, isBot=False, isDm=False, attachments=None, stickers=None, createdAt=None):
         message = MagicMock()
         message.id = 77777
         message.content = content
         message.attachments = attachments or []
         message.stickers = stickers or []
         message.delete = AsyncMock()
+        message.created_at = createdAt if createdAt is not None else datetime.now(timezone.utc)
         author = mockUser(userId=authorId, name=f"user_{authorId}", isBot=isBot)
         message.author = author
         if isDm:

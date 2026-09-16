@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 from database import Database
@@ -138,3 +139,50 @@ async def testDuplicateRapidMessages(mockMessage, watcherSetup):
     assert msg.delete.await_count == 1
     assert msg.guild.ban.await_count == 1
     db.close()
+
+@pytest.mark.asyncio
+async def testMessageCreatedBeforeBotOnlineIgnored(mockMessage, watcherSetup):
+    watcher, configService, banService, banRepo, db = watcherSetup
+    guildId = 99999
+    channelId = 11111
+    configService.setWatchChannel(guildId, channelId)
+    configService.setPolicy(guildId, "enforced")
+    
+    botStartTime = datetime.now(timezone.utc)
+    watcher.bot.startTime = botStartTime
+    
+    oldMsg = mockMessage(
+        channelId=channelId,
+        guildId=guildId,
+        createdAt=botStartTime - timedelta(minutes=5)
+    )
+    handled = await watcher.handleMessage(oldMsg)
+    
+    assert handled is False
+    oldMsg.delete.assert_not_awaited()
+    oldMsg.guild.ban.assert_not_awaited()
+    db.close()
+
+@pytest.mark.asyncio
+async def testHandleMessageEventCreatedBeforeStartTime(mockMessage):
+    startTime = datetime.now(timezone.utc)
+    oldMsg = mockMessage(
+        channelId=11111,
+        createdAt=startTime - timedelta(seconds=10)
+    )
+    handled = await handleMessageEvent(oldMsg, watchedChannelId=11111, policy="enforced", startTime=startTime)
+    assert handled is False
+    oldMsg.delete.assert_not_awaited()
+    oldMsg.guild.ban.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def testHandleMessageEventCreatedAfterStartTime(mockMessage):
+    startTime = datetime.now(timezone.utc) - timedelta(minutes=1)
+    newMsg = mockMessage(
+        channelId=11111,
+        createdAt=datetime.now(timezone.utc)
+    )
+    handled = await handleMessageEvent(newMsg, watchedChannelId=11111, policy="enforced", startTime=startTime)
+    assert handled is True
+    newMsg.delete.assert_awaited_once()
+    newMsg.guild.ban.assert_awaited_once()

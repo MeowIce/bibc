@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import logging
 import discord
 from models.guildConfig import GuildConfig
@@ -13,9 +14,10 @@ class BanResult:
     reason: str
 
 class BanService:
-    def __init__(self, banRepository: BanRepository, defaultReason: str = "gửi tin nhắn vào kênh lọc spam"):
+    def __init__(self, banRepository: BanRepository, defaultReason: str = "gửi tin nhắn vào kênh lọc spam", startTime: datetime | None = None):
         self.banRepository = banRepository
         self.defaultReason = defaultReason
+        self.startTime = startTime
 
     async def handleMessage(self, message: discord.Message, guildConfig: GuildConfig) -> BanResult:
         if guildConfig.policy == "permissive":
@@ -74,11 +76,19 @@ class BanService:
                 except TypeError:
                     pass
 
+        deleteMessageSeconds = 300
+        if isinstance(self.startTime, datetime):
+            refStartTime = self.startTime
+            if refStartTime.tzinfo is None:
+                refStartTime = refStartTime.replace(tzinfo=timezone.utc)
+            uptime = int((datetime.now(timezone.utc) - refStartTime).total_seconds())
+            deleteMessageSeconds = max(0, min(300, uptime))
+
         try:
             await message.guild.ban(
                 message.author,
                 reason=self.defaultReason,
-                delete_message_seconds=300
+                delete_message_seconds=deleteMessageSeconds
             )
             action = "banned"
             reason = self.defaultReason

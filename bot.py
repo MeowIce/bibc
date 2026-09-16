@@ -32,7 +32,7 @@ class BibcBot(commands.Bot):
         self.guildConfigRepo = GuildConfigRepository(self.database)
         self.guildConfigService = GuildConfigService(self.guildConfigRepo)
         self.banRepo = BanRepository(self.database)
-        self.banService = BanService(self.banRepo)
+        self.banService = BanService(self.banRepo, startTime=self.startTime)
         self.reportService = ReportService()
         self.statisticsService = StatisticsService(self.banRepo)
         self.messageWatcher = MessageWatcher(
