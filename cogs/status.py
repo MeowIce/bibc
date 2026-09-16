@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import logging
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 try:
     from discord.ui import LayoutView, Container, TextDisplay, Separator
     hasComponentsV2 = True
@@ -66,12 +66,31 @@ class StatusCog(commands.Cog):
         self.developerId = developerId
         self.supportServerUrl = supportServerUrl
 
+    async def cog_load(self):
+        self.statusUpdateLoop.start()
+
+    async def cog_unload(self):
+        self.statusUpdateLoop.cancel()
+
+    @tasks.loop(minutes=5)
+    async def statusUpdateLoop(self):
+        await updateBotStatus(self.bot)
+
+    @statusUpdateLoop.before_loop
+    async def beforeStatusUpdateLoop(self):
+        if hasattr(self.bot, "wait_until_ready"):
+            await self.bot.wait_until_ready()
+
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         await updateBotStatus(self.bot)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
+        await updateBotStatus(self.bot)
+
+    @commands.Cog.listener()
+    async def on_guild_available(self, guild):
         await updateBotStatus(self.bot)
 
     @app_commands.command(name="status", description="About BIBC...")

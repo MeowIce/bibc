@@ -70,14 +70,6 @@ class BibcBot(commands.Bot):
         logger.info("Application setup complete, database initialized, and global command tree synced.")
 
     async def on_ready(self):
-        await updateBotStatus(self)
-        for guild in self.guilds:
-            try:
-                self.tree.clear_commands(guild=guild)
-                await self.tree.sync(guild=guild)
-            except Exception as e:
-                logger.warning(f"Failed to clear old guild commands for guild {guild.id}: {e}")
-
         divider = "=" * 60
         readyBanner = (
             f"\n{divider}\n"
@@ -89,6 +81,14 @@ class BibcBot(commands.Bot):
             f"{divider}"
         )
         logger.info(readyBanner)
+
+        for guild in self.guilds:
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+            except Exception as e:
+                logger.warning(f"Failed to clear old guild commands for guild {guild.id}: {e}")
+        await updateBotStatus(self)
 
     async def on_message(self, message: discord.Message):
         await self.messageWatcher.handleMessage(message)
