@@ -21,7 +21,10 @@ def formatActivityString(serverCount: int, memberCount: int, bannedCount: int = 
 def calculateMemberCount(guilds) -> int:
     total = 0
     for guild in guilds:
-        total += getattr(guild, "member_count", 0) or 0
+        count = getattr(guild, "member_count", None)
+        if count is None or count == 0:
+            count = len(getattr(guild, "members", []))
+        total += count or 0
     return total
 
 async def updateBotStatus(bot):
