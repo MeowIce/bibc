@@ -105,7 +105,7 @@ class BibcBot(commands.Bot):
 
 def main():
     configureLogging()
-    logger.info("Starting BIBC v2.0...")
+    logger.info("Starting BIBC v3.0...")
     config = loadConfig()
     bot = BibcBot(config)
     try:

@@ -1,4 +1,4 @@
-# BanInBlacklistedChannels 2.0 (Production Refactor)
+# BanInBlacklistedChannels 3.0 (Production Refactor)
 
 BanInBlacklistedChannels (BIBC) is a dedicated honeypot spam prevention bot for Discord servers.
 

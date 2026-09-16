@@ -3,7 +3,7 @@
 
 ## 1. Tổng quan Dự án & Luồng Hoạt động
 
-- **Tên dự án**: BanInBlacklistedChannels (BIBC) v2.0
+- **Tên dự án**: BanInBlacklistedChannels (BIBC) v3.0
 - **Tác giả**: MeowIce
 - **Mục đích**: Bot Discord chuyên dụng đóng vai trò bẫy lọc spam (honeypot). Tự động phát hiện tin nhắn gửi vào kênh chỉ định được cấu hình persistent per-guild trong SQLite, xử lý người dùng vi phạm theo chính sách và xuất báo cáo giám sát.
 - **Cấu trúc tệp tin & Kiến trúc**:
