@@ -49,6 +49,7 @@ def mockMessage(mockUser, mockGuild, mockChannel):
         message = MagicMock()
         message.id = 77777
         message.content = content
+        message.delete = AsyncMock()
         author = mockUser(userId=authorId, name=f"user_{authorId}", isBot=isBot)
         message.author = author
         if isDm:

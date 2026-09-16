@@ -63,6 +63,7 @@ async def testEnforcedIntegrationPipeline(mockMessage, mockChannel, integrationP
     handled = await p["watcher"].handleMessage(msg)
     assert handled is True
     
+    msg.delete.assert_awaited_once()
     msg.guild.ban.assert_awaited_once_with(
         msg.author,
         reason="gửi tin nhắn vào kênh lọc spam",
@@ -99,6 +100,7 @@ async def testPermissiveIntegrationPipeline(mockMessage, mockChannel, integratio
     handled = await p["watcher"].handleMessage(msg)
     assert handled is True
     
+    msg.delete.assert_awaited_once()
     msg.guild.ban.assert_not_awaited()
     assert p["statService"].countTotal(guildId) == 0
     reportCh.send.assert_awaited_once()
@@ -121,6 +123,7 @@ async def testRestartPersistence(mockMessage, integrationPipeline):
     
     msg = mockMessage(channelId=watchChId, guildId=guildId, authorId=70003)
     await p["watcher"].handleMessage(msg)
+    msg.delete.assert_awaited_once()
     
     p["db"].close()
     
@@ -144,6 +147,7 @@ async def testMissingConfigIntegration(mockMessage, integrationPipeline):
     
     handled = await p["watcher"].handleMessage(msg)
     assert handled is False
+    msg.delete.assert_not_awaited()
     msg.guild.ban.assert_not_awaited()
     assert p["statService"].countTotal(88888) == 0
     
@@ -166,6 +170,7 @@ async def testPermissionFailureIntegration(mockMessage, integrationPipeline):
     
     handled = await p["watcher"].handleMessage(msg)
     assert handled is True
+    msg.delete.assert_awaited_once()
     assert p["statService"].countTotal(guildId) == 0
     
     recentRecords = p["banRepo"].getRecent(guildId)

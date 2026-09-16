@@ -46,6 +46,8 @@ async def testWatchedChannelDetection(mockMessage, watcherSetup):
     
     assert handled is True
     assert ignored is False
+    watchedMsg.delete.assert_awaited_once()
+    unrelatedMsg.delete.assert_not_awaited()
     db.close()
 
 @pytest.mark.asyncio
@@ -59,6 +61,7 @@ async def testEnforcedPolicyBan(mockMessage, watcherSetup):
     msg = mockMessage(channelId=channelId, guildId=guildId)
     await watcher.handleMessage(msg)
     
+    msg.delete.assert_awaited_once()
     msg.guild.ban.assert_awaited_once_with(
         msg.author,
         reason="gửi tin nhắn vào kênh lọc spam",
@@ -77,6 +80,7 @@ async def testPermissivePolicyNoBan(mockMessage, watcherSetup):
     msg = mockMessage(channelId=channelId, guildId=guildId)
     await watcher.handleMessage(msg)
     
+    msg.delete.assert_awaited_once()
     msg.guild.ban.assert_not_awaited()
     db.close()
 
@@ -92,6 +96,7 @@ async def testBotAuthorExcluded(mockMessage, watcherSetup):
     handled = await watcher.handleMessage(msg)
     
     assert handled is False
+    msg.delete.assert_not_awaited()
     msg.guild.ban.assert_not_awaited()
     db.close()
 
@@ -102,6 +107,7 @@ async def testDmExcluded(mockMessage, watcherSetup):
     handled = await watcher.handleMessage(msg)
     
     assert handled is False
+    msg.delete.assert_not_awaited()
     db.close()
 
 @pytest.mark.asyncio
@@ -111,6 +117,7 @@ async def testUnconfiguredGuildIgnored(mockMessage, watcherSetup):
     handled = await watcher.handleMessage(msg)
     
     assert handled is False
+    msg.delete.assert_not_awaited()
     msg.guild.ban.assert_not_awaited()
     db.close()
 
@@ -128,5 +135,6 @@ async def testDuplicateRapidMessages(mockMessage, watcherSetup):
     
     assert firstResult is True
     assert secondResult is False
+    assert msg.delete.await_count == 1
     assert msg.guild.ban.await_count == 1
     db.close()

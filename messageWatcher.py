@@ -54,6 +54,13 @@ class MessageWatcher:
             if message.channel.id != guildConfig.watchChannelId:
                 return False
 
+            try:
+                await message.delete()
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException) as e:
+                logger.warning(f"Failed to delete message {message.id} in channel {message.channel.id}: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error deleting message {message.id}: {e}")
+
             banResult = await self.banService.handleMessage(message, guildConfig)
             await self.reportService.sendEventReport(
                 guildConfig=guildConfig,
@@ -71,6 +78,10 @@ async def handleMessageEvent(message: discord.Message, watchedChannelId: int, po
         return False
     if message.channel.id != watchedChannelId:
         return False
+    try:
+        await message.delete()
+    except Exception:
+        pass
     if policy == "enforced":
         await message.guild.ban(
             message.author,
