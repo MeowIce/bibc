@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import logging
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from config import loadConfig, AppConfig
@@ -40,6 +41,19 @@ class BibcBot(commands.Bot):
             self.banService,
             self.reportService
         )
+        self._setupTreeErrorHandler()
+
+    def _setupTreeErrorHandler(self):
+        async def onTreeError(interaction: discord.Interaction, error: app_commands.AppCommandError):
+            if isinstance(error, app_commands.CommandNotFound):
+                commandName = getattr(error, "name", "unknown")
+                logger.warning(f"Ignored outdated application command '{commandName}' from user {interaction.user.id}")
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("Lệnh này không còn tồn tại hoặc đã lỗi thời.", ephemeral=True)
+                return
+            logger.exception(f"Unhandled error in command tree: {error}")
+
+        self.tree.on_error = onTreeError
 
     async def setup_hook(self):
         self.database.initialize()
@@ -53,11 +67,17 @@ class BibcBot(commands.Bot):
             )
         )
         await self.tree.sync()
-        logger.info("Application setup complete, database initialized, and command tree synced.")
+        logger.info("Application setup complete, database initialized, and global command tree synced.")
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user} (ID: {self.user.id}).")
         logger.info(f"Monitoring total guilds: {len(self.guilds)}.")
+        for guild in self.guilds:
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+            except Exception as e:
+                logger.warning(f"Failed to clear old guild commands for guild {guild.id}: {e}")
         await updateBotStatus(self)
 
     async def on_message(self, message: discord.Message):
