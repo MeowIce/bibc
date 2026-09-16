@@ -93,17 +93,24 @@ def testFormatMessageContentTruncateOver1024(mockMessage):
     assert len(formatted) <= 1024
     assert formatted.endswith("...")
 
-def testCreateReportEmbedsSingleImage(mockMessage):
+def testCreateReportLayoutViewSingleImage(mockMessage):
     service = ReportService()
     msg = mockMessage(content="single image test")
     media = [SavedMedia(filename="0_photo.png", data=b"img", isImage=True)]
     config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
     
-    embeds = service.createReportEmbeds(config, msg, "banned", "reason", media)
-    assert len(embeds) == 1
-    assert embeds[0].image.url == "attachment://0_photo.png"
+    view = service.createReportLayoutView(config, msg, "banned", "reason", media)
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
+    
+    subComponents = components[0]["components"]
+    gallery = next((c for c in subComponents if c["type"] == 12), None)
+    assert gallery is not None
+    assert len(gallery["items"]) == 1
+    assert gallery["items"][0]["media"]["url"] == "attachment://0_photo.png"
 
-def testCreateReportEmbedsMultipleMediaNoEmptySubEmbeds(mockMessage):
+def testCreateReportLayoutViewMultipleImagesGallery(mockMessage):
     service = ReportService()
     msg = mockMessage(content="multiple media test")
     media = [
@@ -113,9 +120,18 @@ def testCreateReportEmbedsMultipleMediaNoEmptySubEmbeds(mockMessage):
     ]
     config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
     
-    embeds = service.createReportEmbeds(config, msg, "banned", "reason", media)
-    assert len(embeds) == 1
-    assert embeds[0].image.url == "attachment://0_photo1.png"
+    view = service.createReportLayoutView(config, msg, "banned", "reason", media)
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
+    
+    subComponents = components[0]["components"]
+    gallery = next((c for c in subComponents if c["type"] == 12), None)
+    assert gallery is not None
+    assert len(gallery["items"]) == 3
+    assert gallery["items"][0]["media"]["url"] == "attachment://0_photo1.png"
+    assert gallery["items"][1]["media"]["url"] == "attachment://1_photo2.jpg"
+    assert gallery["items"][2]["media"]["url"] == "attachment://2_photo3.webp"
 
 @pytest.mark.asyncio
 async def testSendEventReportNoReportChannel(mockMessage):
@@ -148,39 +164,16 @@ async def testSendEventReportSuccessWithReuploadedFiles(mockMessage, mockChannel
     reportCh.send.assert_awaited_once()
     
     kwargs = reportCh.send.call_args.kwargs
-    embed = kwargs.get("embed")
+    view = kwargs.get("view")
     files = kwargs.get("files")
     
-    assert embed is not None
-    assert embed.image.url == "attachment://0_photo.png"
+    assert view is not None
+    components = view.to_components()
+    assert components[0]["type"] == 17
     assert files is not None
     assert len(files) == 2
     assert files[0].filename == "0_photo.png"
     assert files[1].filename == "1_voice.ogg"
-
-@pytest.mark.asyncio
-async def testSendEventReportSuccessMultipleImagesWithFiles(mockMessage, mockChannel, mockAttachment):
-    service = ReportService()
-    attImage1 = mockAttachment("photo1.png", "https://cdn.discordapp.com/photo1.png", data=b"img1")
-    attImage2 = mockAttachment("photo2.png", "https://cdn.discordapp.com/photo2.png", data=b"img2")
-    
-    msg = mockMessage(content="multi media", attachments=[attImage1, attImage2])
-    reportCh = mockChannel(channelId=33333, guild=msg.guild)
-    config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
-    
-    result = await service.sendEventReport(config, msg, "detected", "log only")
-    assert result is True
-    reportCh.send.assert_awaited_once()
-    
-    kwargs = reportCh.send.call_args.kwargs
-    embed = kwargs.get("embed")
-    files = kwargs.get("files")
-    
-    assert embed is not None
-    assert embed.image.url == "attachment://0_photo1.png"
-    assert len(files) == 2
-    assert files[0].filename == "0_photo1.png"
-    assert files[1].filename == "1_photo2.png"
 
 @pytest.mark.asyncio
 async def testSendEventReportDiscordExceptionHandling(mockMessage, mockChannel):

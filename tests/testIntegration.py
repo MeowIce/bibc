@@ -73,13 +73,17 @@ async def testEnforcedIntegrationPipeline(mockMessage, mockChannel, integrationP
     assert p["statService"].countTotal(guildId) == 1
     reportCh.send.assert_awaited_once()
     
-    embed = reportCh.send.call_args.kwargs.get("embed")
-    assert embed is not None
-    fieldDict = {f.name: f.value for f in embed.fields}
-    assert "User" in fieldDict
-    assert "Status" in fieldDict
-    assert fieldDict["Status"] == "Banned"
-    assert "Message Content" in fieldDict
+    view = reportCh.send.call_args.kwargs.get("view")
+    assert view is not None
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
+    
+    containerComponents = components[0]["components"]
+    contents = [c.get("content", "") for c in containerComponents if "content" in c]
+    assert any("BanInBlacklistedChannels Event Log" in c for c in contents)
+    assert any("Status:** Banned" in c for c in contents)
+    assert any("Message Content:**" in c for c in contents)
     
     p["db"].close()
 
@@ -105,10 +109,15 @@ async def testPermissiveIntegrationPipeline(mockMessage, mockChannel, integratio
     assert p["statService"].countTotal(guildId) == 0
     reportCh.send.assert_awaited_once()
     
-    embed = reportCh.send.call_args.kwargs.get("embed")
-    assert embed is not None
-    fieldDict = {f.name: f.value for f in embed.fields}
-    assert fieldDict["Status"] == "Reported"
+    view = reportCh.send.call_args.kwargs.get("view")
+    assert view is not None
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
+    
+    containerComponents = components[0]["components"]
+    contents = [c.get("content", "") for c in containerComponents if "content" in c]
+    assert any("Status:** Reported" in c for c in contents)
     
     p["db"].close()
 

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ui import LayoutView, Container, TextDisplay, Separator
 from services.statisticsService import StatisticsService
 from services.guildConfigService import GuildConfigService
 
@@ -64,17 +65,32 @@ class StatusCog(commands.Cog):
         monthBans = self.statisticsService.countThisMonth(interaction.guild_id)
         weekBans = self.statisticsService.countThisWeek(interaction.guild_id)
 
-        infoEmbed = discord.Embed(title="About BanInBlacklistedChannels Bot...")
-        infoEmbed.add_field(name="Developer", value=self.developerId, inline=False)
         botUserId = getattr(self.bot.user, "id", "Unknown")
-        infoEmbed.add_field(name="Bot ID", value=f"`{botUserId}`", inline=False)
-        infoEmbed.add_field(name="Execution Policy", value=currentPolicy, inline=False)
-        infoEmbed.add_field(name="Uptime", value=f"{days}d {hours}h {minutes}m {seconds}s", inline=False)
-        infoEmbed.add_field(name="Support Server", value=self.supportServerUrl, inline=False)
-        infoEmbed.add_field(name="Banned (Total / Month / Week)", value=f"{totalBans} / {monthBans} / {weekBans}", inline=False)
-        infoEmbed.set_footer(text="Want me to protect your server ?\nJoin the Support Server or DM the Dev to get started !")
 
-        await interaction.response.send_message(embed=infoEmbed)
+        view = LayoutView()
+        container = Container(accent_color=discord.Color.blurple())
+        container.add_item(TextDisplay("## About BanInBlacklistedChannels Bot..."))
+        container.add_item(Separator())
+
+        details = (
+            f"**Developer:** {self.developerId}\n"
+            f"**Bot ID:** `{botUserId}`\n"
+            f"**Execution Policy:** {currentPolicy}\n"
+            f"**Uptime:** {days}d {hours}h {minutes}m {seconds}s\n"
+            f"**Support Server:** {self.supportServerUrl}\n"
+            f"**Banned (Total / Month / Week):** {totalBans} / {monthBans} / {weekBans}"
+        )
+        container.add_item(TextDisplay(details))
+        container.add_item(Separator())
+
+        footerText = (
+            "*Want me to protect your server ?*\n"
+            "*Join the Support Server or DM the Dev to get started !*"
+        )
+        container.add_item(TextDisplay(footerText))
+        view.add_item(container)
+
+        await interaction.response.send_message(view=view)
 
 async def setup(bot):
     statisticsService = getattr(bot, "statisticsService", None)

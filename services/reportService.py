@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import io
 import logging
 import discord
+from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
 from models.guildConfig import GuildConfig
 from utils.logging import truncateContent
 
@@ -69,37 +70,50 @@ class ReportService:
             return formatted[:1021] + "..."
         return formatted
 
-    def createReportEmbeds(
+    def createReportLayoutView(
         self,
         guildConfig: GuildConfig,
         message: discord.Message,
         action: str,
         reason: str,
         mediaList: list[SavedMedia] | None = None
-    ) -> list[discord.Embed]:
+    ) -> LayoutView:
         mediaItems = mediaList or []
         formattedContent = self.formatMessageContent(message, mediaItems)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
 
         if action == "banned":
             statusDisplay = "Banned"
+            accentColor = discord.Color.red()
         elif action == "detected":
             statusDisplay = "Reported"
+            accentColor = discord.Color.blue()
         else:
             statusDisplay = f"Failed: {reason}"
+            accentColor = discord.Color.gold()
+
+        view = LayoutView()
+        container = Container(accent_color=accentColor)
+        container.add_item(TextDisplay("## BanInBlacklistedChannels Event Log"))
+        container.add_item(Separator())
+
+        bodyText = (
+            f"**User:** {message.author.mention} ({message.author.id})\n"
+            f"**Status:** {statusDisplay}\n"
+            f"**Message Content:** {formattedContent}"
+        )
+        container.add_item(TextDisplay(bodyText))
 
         imageMedia = [m for m in mediaItems if m.isImage]
-
-        mainEmbed = discord.Embed(title="BanInBlacklistedChannels Event Log")
-        mainEmbed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
-        mainEmbed.add_field(name="Status", value=statusDisplay, inline=False)
-        mainEmbed.add_field(name="Message Content", value=formattedContent, inline=False)
-        mainEmbed.set_footer(text=currentTimeStr)
-
         if imageMedia:
-            mainEmbed.set_image(url=f"attachment://{imageMedia[0].filename}")
+            galleryItems = [discord.MediaGalleryItem(f"attachment://{m.filename}") for m in imageMedia[:10]]
+            gallery = MediaGallery(*galleryItems)
+            container.add_item(gallery)
 
-        return [mainEmbed]
+        container.add_item(Separator())
+        container.add_item(TextDisplay(f"*{currentTimeStr}*"))
+        view.add_item(container)
+        return view
 
     async def sendEventReport(
         self,
@@ -121,7 +135,7 @@ class ReportService:
         if mediaList is None:
             mediaList = await self.collectMedia(message)
 
-        embeds = self.createReportEmbeds(guildConfig, message, action, reason, mediaList)
+        view = self.createReportLayoutView(guildConfig, message, action, reason, mediaList)
         files = []
         for m in mediaList:
             buf = io.BytesIO(m.data)
@@ -130,9 +144,9 @@ class ReportService:
 
         try:
             if files:
-                await reportChannel.send(embed=embeds[0], files=files)
+                await reportChannel.send(view=view, files=files)
             else:
-                await reportChannel.send(embed=embeds[0])
+                await reportChannel.send(view=view)
             return True
         except discord.DiscordException as e:
             logger.warning(f"Discord exception sending report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")

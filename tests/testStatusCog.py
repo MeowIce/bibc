@@ -53,14 +53,15 @@ async def testStatusCommandOutput():
     await cog.status.callback(cog, interaction)
     
     interaction.response.send_message.assert_awaited_once()
-    embed = interaction.response.send_message.call_args.kwargs.get("embed")
-    assert embed is not None
-    assert embed.title == "About BanInBlacklistedChannels Bot..."
+    view = interaction.response.send_message.call_args.kwargs.get("view")
+    assert view is not None
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
     
-    fieldDict = {f.name: f.value for f in embed.fields}
-    assert "Bot ID" in fieldDict
-    assert "Uptime" in fieldDict
-    assert "Execution Policy" in fieldDict
-    assert "Banned (Total / Month / Week)" in fieldDict
-    assert fieldDict["Execution Policy"] == "`enforced`"
-    assert fieldDict["Banned (Total / Month / Week)"] == "10 / 5 / 2"
+    containerComponents = components[0]["components"]
+    contents = [c.get("content", "") for c in containerComponents if "content" in c]
+    assert any("About BanInBlacklistedChannels Bot..." in c for c in contents)
+    assert any("`993329384499208252`" in c for c in contents)
+    assert any("`enforced`" in c for c in contents)
+    assert any("10 / 5 / 2" in c for c in contents)

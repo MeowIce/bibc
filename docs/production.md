@@ -33,7 +33,7 @@ BIBC uses SQLite for persistent storage of server configurations and moderation 
 
 ### `/config reportchannel <channel>`
 - Permissions: Administrator only, Guild only.
-- Description: Configures the event report channel where embed notifications are sent (User, Status: Banned/Reported, Message Content, Footer timestamp).
+- Description: Configures the event report channel where Components V2 notifications are sent (User, Status: Banned/Reported, Message Content, Media Gallery, Footer timestamp).
 
 ### `/config policy <enforced|permissive>`
 - Permissions: Administrator only, Guild only.
