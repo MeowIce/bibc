@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -14,6 +15,8 @@ except ImportError:
 
 from services.statisticsService import StatisticsService
 from services.guildConfigService import GuildConfigService
+
+logger = logging.getLogger(__name__)
 
 def formatActivityString(serverCount: int, memberCount: int, bannedCount: int = 0) -> str:
     return f"{serverCount} servers, {memberCount} members, banned {bannedCount} accounts"
@@ -44,6 +47,7 @@ async def updateBotStatus(bot):
     activity = discord.Activity(type=discord.ActivityType.watching, name=statusText)
     if hasattr(bot, "change_presence"):
         await bot.change_presence(activity=activity)
+        logger.info(f"Bot presence updated: Watching {statusText}")
 
 class StatusCog(commands.Cog):
     def __init__(
