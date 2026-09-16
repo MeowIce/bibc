@@ -26,6 +26,7 @@
   - **Báo cáo sự kiện (`ReportService`)**: Gửi thông báo chi tiết dạng Embed tới kênh báo cáo của guild (hoạt động độc lập, không ảnh hưởng kết quả ban).
 - **Hệ thống lệnh Slash Commands**:
   - `/config watchchannel <channel>`: Cấu hình kênh bẫy spam cho server (yêu cầu quyền Administrator).
+  - `/config reportchannel <channel>`: Cấu hình kênh nhận log Embed sự kiện cho server (yêu cầu quyền Administrator).
   - `/config policy <enforced|permissive>`: Thiết lập chính sách thực thi cho server (yêu cầu quyền Administrator).
   - `/status`: Hiển thị thông tin bot, uptime, chính sách server hiện tại và thống kê số lượng đã xử lý (Tổng / Tháng / Tuần).
 

@@ -27,6 +27,24 @@ class ConfigCog(commands.GroupCog, name="config"):
         self.guildConfigService.setWatchChannel(interaction.guild_id, channel.id)
         await interaction.response.send_message(f"Watch channel set to {channel.mention} (`{channel.id}`)")
 
+    @app_commands.command(name="reportchannel", description="Set the event report channel for this server.")
+    @app_commands.default_permissions(administrator=True)
+    async def reportchannel(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        if interaction.guild is None or interaction.guild_id is None:
+            await interaction.response.send_message("Server only.", ephemeral=True)
+            return
+
+        if not getattr(interaction.user.guild_permissions, "administrator", False):
+            await interaction.response.send_message("Requires Administrator permission.", ephemeral=True)
+            return
+
+        if channel.guild.id != interaction.guild_id:
+            await interaction.response.send_message("Channel does not belong to current server.", ephemeral=True)
+            return
+
+        self.guildConfigService.setReportChannel(interaction.guild_id, channel.id)
+        await interaction.response.send_message(f"Report channel set to {channel.mention} (`{channel.id}`)")
+
     @app_commands.command(name="policy", description="Set moderation policy for this server.")
     @app_commands.choices(policy=[
         app_commands.Choice(name="enforced", value="enforced"),

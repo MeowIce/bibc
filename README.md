@@ -43,6 +43,7 @@ python bot.py
 ## Slash Commands
 
 - `/config watchchannel <channel>`: Set the monitored honeypot channel (Admin only, server only).
+- `/config reportchannel <channel>`: Set the event report channel for embed logs (Admin only, server only).
 - `/config policy <enforced|permissive>`: Switch policy between enforced and permissive (Admin only, server only).
 - `/status`: View bot status, uptime, server policy, and persistent ban statistics.
 

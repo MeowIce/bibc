@@ -86,6 +86,42 @@ async def testWatchChannelSuccess(mockAdminInteraction):
     interaction.response.send_message.assert_awaited_once()
 
 @pytest.mark.asyncio
+async def testReportChannelValidationMismatch(mockAdminInteraction):
+    assert ConfigCog is not None
+    interaction = mockAdminInteraction(guildId=12345, isAdmin=True)
+    
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.guild = MagicMock()
+    channel.guild.id = 99999
+    channel.id = 66666
+    channel.name = "other-report-channel"
+    
+    configService = MagicMock()
+    cog = ConfigCog(guildConfigService=configService)
+    await cog.reportchannel.callback(cog, interaction, channel=channel)
+    
+    interaction.response.send_message.assert_awaited_once()
+    assert "current server" in interaction.response.send_message.call_args[0][0]
+    configService.setReportChannel.assert_not_called()
+
+@pytest.mark.asyncio
+async def testReportChannelSuccess(mockAdminInteraction):
+    assert ConfigCog is not None
+    interaction = mockAdminInteraction(guildId=12345, isAdmin=True)
+    
+    channel = MagicMock(spec=discord.TextChannel)
+    channel.guild = interaction.guild
+    channel.id = 66666
+    channel.name = "mod-log"
+    
+    configService = MagicMock()
+    cog = ConfigCog(guildConfigService=configService)
+    await cog.reportchannel.callback(cog, interaction, channel=channel)
+    
+    configService.setReportChannel.assert_called_once_with(12345, 66666)
+    interaction.response.send_message.assert_awaited_once()
+
+@pytest.mark.asyncio
 async def testPolicySuccess(mockAdminInteraction):
     assert ConfigCog is not None
     interaction = mockAdminInteraction(guildId=12345, isAdmin=True)

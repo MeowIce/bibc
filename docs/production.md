@@ -31,6 +31,10 @@ BIBC uses SQLite for persistent storage of server configurations and moderation 
 - Permissions: Administrator only, Guild only.
 - Description: Configures the designated honeypot channel for the current server.
 
+### `/config reportchannel <channel>`
+- Permissions: Administrator only, Guild only.
+- Description: Configures the event report channel where embed notifications are sent (User, Status: Banned/Reported, Message Content, Footer timestamp).
+
 ### `/config policy <enforced|permissive>`
 - Permissions: Administrator only, Guild only.
 - Description: Sets policy to `enforced` (automatic ban with 5-minute message deletion) or `permissive` (detection and logging only, no ban).

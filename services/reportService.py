@@ -29,11 +29,17 @@ class ReportService:
         boundedContent = truncateContent(message.content, self.maxContentLength)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
 
+        if action == "banned":
+            statusDisplay = "Banned"
+        elif action == "detected":
+            statusDisplay = "Reported"
+        else:
+            statusDisplay = f"Failed: {reason}"
+
         embed = discord.Embed(title="BanInBlacklistedChannels Event Log")
         embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
-        embed.add_field(name="Status", value=action, inline=False)
-        embed.add_field(name="Reason", value=reason, inline=False)
-        embed.add_field(name="Content", value=boundedContent if boundedContent else "<empty>", inline=False)
+        embed.add_field(name="Status", value=statusDisplay, inline=False)
+        embed.add_field(name="Message Content", value=boundedContent if boundedContent else "<empty>", inline=False)
         embed.set_footer(text=currentTimeStr)
 
         try:

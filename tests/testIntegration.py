@@ -72,6 +72,14 @@ async def testEnforcedIntegrationPipeline(mockMessage, mockChannel, integrationP
     assert p["statService"].countTotal(guildId) == 1
     reportCh.send.assert_awaited_once()
     
+    embed = reportCh.send.call_args.kwargs.get("embed")
+    assert embed is not None
+    fieldDict = {f.name: f.value for f in embed.fields}
+    assert "User" in fieldDict
+    assert "Status" in fieldDict
+    assert fieldDict["Status"] == "Banned"
+    assert "Message Content" in fieldDict
+    
     p["db"].close()
 
 @pytest.mark.asyncio
@@ -94,6 +102,11 @@ async def testPermissiveIntegrationPipeline(mockMessage, mockChannel, integratio
     msg.guild.ban.assert_not_awaited()
     assert p["statService"].countTotal(guildId) == 0
     reportCh.send.assert_awaited_once()
+    
+    embed = reportCh.send.call_args.kwargs.get("embed")
+    assert embed is not None
+    fieldDict = {f.name: f.value for f in embed.fields}
+    assert fieldDict["Status"] == "Reported"
     
     p["db"].close()
 
