@@ -99,13 +99,7 @@ class ReportService:
         if imageMedia:
             mainEmbed.set_image(url=f"attachment://{imageMedia[0].filename}")
 
-        embeds = [mainEmbed]
-        for item in imageMedia[1:10]:
-            subEmbed = discord.Embed()
-            subEmbed.set_image(url=f"attachment://{item.filename}")
-            embeds.append(subEmbed)
-
-        return embeds
+        return [mainEmbed]
 
     async def sendEventReport(
         self,
@@ -128,19 +122,17 @@ class ReportService:
             mediaList = await self.collectMedia(message)
 
         embeds = self.createReportEmbeds(guildConfig, message, action, reason, mediaList)
-        files = [discord.File(fp=io.BytesIO(m.data), filename=m.filename) for m in mediaList]
+        files = []
+        for m in mediaList:
+            buf = io.BytesIO(m.data)
+            buf.seek(0)
+            files.append(discord.File(fp=buf, filename=m.filename))
 
         try:
-            if len(embeds) == 1:
-                if files:
-                    await reportChannel.send(embed=embeds[0], files=files)
-                else:
-                    await reportChannel.send(embed=embeds[0])
+            if files:
+                await reportChannel.send(embed=embeds[0], files=files)
             else:
-                if files:
-                    await reportChannel.send(embeds=embeds, files=files)
-                else:
-                    await reportChannel.send(embeds=embeds)
+                await reportChannel.send(embed=embeds[0])
             return True
         except discord.DiscordException as e:
             logger.warning(f"Discord exception sending report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")

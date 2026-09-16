@@ -103,9 +103,9 @@ def testCreateReportEmbedsSingleImage(mockMessage):
     assert len(embeds) == 1
     assert embeds[0].image.url == "attachment://0_photo.png"
 
-def testCreateReportEmbedsMultipleImagesGallery(mockMessage):
+def testCreateReportEmbedsMultipleMediaNoEmptySubEmbeds(mockMessage):
     service = ReportService()
-    msg = mockMessage(content="gallery test")
+    msg = mockMessage(content="multiple media test")
     media = [
         SavedMedia(filename="0_photo1.png", data=b"img1", isImage=True),
         SavedMedia(filename="1_photo2.jpg", data=b"img2", isImage=True),
@@ -114,10 +114,8 @@ def testCreateReportEmbedsMultipleImagesGallery(mockMessage):
     config = GuildConfig(guildId=99999, watchChannelId=11111, policy="enforced", reportChannelId=33333)
     
     embeds = service.createReportEmbeds(config, msg, "banned", "reason", media)
-    assert len(embeds) == 3
+    assert len(embeds) == 1
     assert embeds[0].image.url == "attachment://0_photo1.png"
-    assert embeds[1].image.url == "attachment://1_photo2.jpg"
-    assert embeds[2].image.url == "attachment://2_photo3.webp"
 
 @pytest.mark.asyncio
 async def testSendEventReportNoReportChannel(mockMessage):
@@ -161,7 +159,7 @@ async def testSendEventReportSuccessWithReuploadedFiles(mockMessage, mockChannel
     assert files[1].filename == "1_voice.ogg"
 
 @pytest.mark.asyncio
-async def testSendEventReportSuccessMultipleEmbedsWithFiles(mockMessage, mockChannel, mockAttachment):
+async def testSendEventReportSuccessMultipleImagesWithFiles(mockMessage, mockChannel, mockAttachment):
     service = ReportService()
     attImage1 = mockAttachment("photo1.png", "https://cdn.discordapp.com/photo1.png", data=b"img1")
     attImage2 = mockAttachment("photo2.png", "https://cdn.discordapp.com/photo2.png", data=b"img2")
@@ -175,14 +173,14 @@ async def testSendEventReportSuccessMultipleEmbedsWithFiles(mockMessage, mockCha
     reportCh.send.assert_awaited_once()
     
     kwargs = reportCh.send.call_args.kwargs
-    embeds = kwargs.get("embeds")
+    embed = kwargs.get("embed")
     files = kwargs.get("files")
     
-    assert embeds is not None
-    assert len(embeds) == 2
-    assert embeds[0].image.url == "attachment://0_photo1.png"
-    assert embeds[1].image.url == "attachment://1_photo2.png"
+    assert embed is not None
+    assert embed.image.url == "attachment://0_photo1.png"
     assert len(files) == 2
+    assert files[0].filename == "0_photo1.png"
+    assert files[1].filename == "1_photo2.png"
 
 @pytest.mark.asyncio
 async def testSendEventReportDiscordExceptionHandling(mockMessage, mockChannel):
