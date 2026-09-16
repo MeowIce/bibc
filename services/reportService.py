@@ -3,7 +3,17 @@ from datetime import datetime, timezone
 import io
 import logging
 import discord
-from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
+try:
+    from discord.ui import LayoutView, Container, TextDisplay, Separator, MediaGallery
+    hasComponentsV2 = True
+except ImportError:
+    hasComponentsV2 = False
+    LayoutView = None
+    Container = None
+    TextDisplay = None
+    Separator = None
+    MediaGallery = None
+
 from models.guildConfig import GuildConfig
 from utils.logging import truncateContent
 
@@ -70,6 +80,40 @@ class ReportService:
             return formatted[:1021] + "..."
         return formatted
 
+    def createReportEmbed(
+        self,
+        guildConfig: GuildConfig,
+        message: discord.Message,
+        action: str,
+        reason: str,
+        mediaList: list[SavedMedia] | None = None
+    ) -> discord.Embed:
+        mediaItems = mediaList or []
+        formattedContent = self.formatMessageContent(message, mediaItems)
+        currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
+
+        if action == "banned":
+            statusDisplay = "Banned"
+            color = discord.Color.red()
+        elif action == "detected":
+            statusDisplay = "Reported"
+            color = discord.Color.blue()
+        else:
+            statusDisplay = f"Failed: {reason}"
+            color = discord.Color.gold()
+
+        embed = discord.Embed(title="BanInBlacklistedChannels Event Log", color=color)
+        embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
+        embed.add_field(name="Status", value=statusDisplay, inline=False)
+        embed.add_field(name="Message Content", value=formattedContent, inline=False)
+        embed.set_footer(text=currentTimeStr)
+
+        imageMedia = [m for m in mediaItems if m.isImage]
+        if imageMedia:
+            embed.set_image(url=f"attachment://{imageMedia[0].filename}")
+
+        return embed
+
     def createReportLayoutView(
         self,
         guildConfig: GuildConfig,
@@ -77,7 +121,10 @@ class ReportService:
         action: str,
         reason: str,
         mediaList: list[SavedMedia] | None = None
-    ) -> LayoutView:
+    ):
+        if not hasComponentsV2:
+            return self.createReportEmbed(guildConfig, message, action, reason, mediaList)
+
         mediaItems = mediaList or []
         formattedContent = self.formatMessageContent(message, mediaItems)
         currentTimeStr = datetime.now(timezone.utc).strftime("%H:%M:%S %d/%m/%Y UTC")
@@ -135,7 +182,6 @@ class ReportService:
         if mediaList is None:
             mediaList = await self.collectMedia(message)
 
-        view = self.createReportLayoutView(guildConfig, message, action, reason, mediaList)
         files = []
         for m in mediaList:
             buf = io.BytesIO(m.data)
@@ -143,10 +189,18 @@ class ReportService:
             files.append(discord.File(fp=buf, filename=m.filename))
 
         try:
-            if files:
-                await reportChannel.send(view=view, files=files)
+            if hasComponentsV2:
+                view = self.createReportLayoutView(guildConfig, message, action, reason, mediaList)
+                if files:
+                    await reportChannel.send(view=view, files=files)
+                else:
+                    await reportChannel.send(view=view)
             else:
-                await reportChannel.send(view=view)
+                embed = self.createReportEmbed(guildConfig, message, action, reason, mediaList)
+                if files:
+                    await reportChannel.send(embed=embed, files=files)
+                else:
+                    await reportChannel.send(embed=embed)
             return True
         except discord.DiscordException as e:
             logger.warning(f"Discord exception sending report to channel {guildConfig.reportChannelId} in guild {message.guild.id}: {e}")
