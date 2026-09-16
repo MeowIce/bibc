@@ -53,6 +53,22 @@ async def updateBotStatus(bot):
         except Exception as e:
             logger.warning(f"Failed to change bot presence: {e}")
 
+def getMinimalBotInviteUrl(botUserId: int) -> str:
+    permissions = discord.Permissions(
+        ban_members=True,
+        manage_messages=True,
+        view_channel=True,
+        send_messages=True,
+        embed_links=True,
+        attach_files=True,
+        read_message_history=True
+    )
+    return discord.utils.oauth_url(
+        botUserId,
+        permissions=permissions,
+        scopes=("bot", "applications.commands")
+    )
+
 class StatusCog(commands.Cog):
     def __init__(
         self,
@@ -135,8 +151,8 @@ class StatusCog(commands.Cog):
             container.add_item(Separator())
 
             footerText = (
-                "*Want me to protect your server ?*\n"
-                "*Join the Support Server or DM the Dev to get started !*"
+                "Want me to protect your server ?\n"
+                "Use the `/invite` command to get started !"
             )
             container.add_item(TextDisplay(footerText))
             view.add_item(container)
@@ -149,12 +165,38 @@ class StatusCog(commands.Cog):
             infoEmbed.add_field(name="Uptime", value=f"{days}d {hours}h {minutes}m {seconds}s", inline=False)
             infoEmbed.add_field(name="Support Server", value=self.supportServerUrl, inline=False)
             infoEmbed.add_field(name="Banned (Total / Month / Week)", value=f"{totalBans} / {monthBans} / {weekBans}", inline=False)
-            infoEmbed.set_footer(text="Want me to protect your server ?\nJoin the Support Server or DM the Dev to get started !")
+            infoEmbed.set_footer(text="Want me to protect your server ?\nUse the `/invite` command to get started !")
             await interaction.response.send_message(embed=infoEmbed)
 
     @app_commands.command(name="about", description="About BanInBlacklistedChannels Bot...")
     async def about(self, interaction: discord.Interaction):
         await self.status.callback(self, interaction)
+
+    @app_commands.command(name="invite", description="Get the invite link to add BIBC to your server...")
+    async def invite(self, interaction: discord.Interaction):
+        botUserId = getattr(getattr(self.bot, "user", None), "id", None) or getattr(getattr(interaction, "client", None), "user", None).id
+        inviteUrl = getMinimalBotInviteUrl(botUserId)
+
+        if hasComponentsV2:
+            view = LayoutView()
+            container = Container()
+            container.add_item(TextDisplay("## Invite BanInBlacklistedChannels Bot"))
+            container.add_item(Separator())
+            container.add_item(TextDisplay("Protect your server against spam and automated raids by inviting BIBC into your channels."))
+            container.add_item(discord.ui.Button(label="Invite Bot", style=discord.ButtonStyle.link, url=inviteUrl))
+            container.add_item(Separator())
+            container.add_item(TextDisplay("*Note: Ensure the bot's role is placed above regular members.*"))
+            view.add_item(container)
+            await interaction.response.send_message(view=view)
+        else:
+            inviteEmbed = discord.Embed(
+                title="Invite BanInBlacklistedChannels Bot",
+                description="Protect your server against spam and automated raids by inviting BIBC into your channels."
+            )
+            inviteEmbed.set_footer(text="Note: Ensure the bot's role is placed above regular members.")
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(label="Invite Bot", style=discord.ButtonStyle.link, url=inviteUrl))
+            await interaction.response.send_message(embed=inviteEmbed, view=view)
 
 async def setup(bot):
     statisticsService = getattr(bot, "statisticsService", None)

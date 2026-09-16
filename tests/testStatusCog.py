@@ -4,12 +4,13 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 try:
-    from cogs.status import formatActivityString, StatusCog, calculateMemberCount, updateBotStatus
+    from cogs.status import formatActivityString, StatusCog, calculateMemberCount, updateBotStatus, getMinimalBotInviteUrl
 except ImportError:
     formatActivityString = None
     StatusCog = None
     calculateMemberCount = None
     updateBotStatus = None
+    getMinimalBotInviteUrl = None
 
 def testFormatActivityString():
     assert formatActivityString is not None
@@ -88,6 +89,14 @@ async def testStatusCommandOutput():
     assert any("`993329384499208252`" in c for c in contents)
     assert any("`enforced`" in c for c in contents)
     assert any("10 / 5 / 2" in c for c in contents)
+    assert any("Use the `/invite` command to get started !" in c for c in contents)
+
+def testMinimalBotInviteUrl():
+    assert getMinimalBotInviteUrl is not None
+    url = getMinimalBotInviteUrl(993329384499208252)
+    assert "client_id=993329384499208252" in url
+    assert "scope=bot+applications.commands" in url
+    assert "permissions=" in url
 
 @pytest.mark.asyncio
 async def testAboutCommandOutput():
@@ -117,3 +126,33 @@ async def testAboutCommandOutput():
     assert view is not None
     components = view.to_components()
     assert components[0].get("accent_color") is None
+
+@pytest.mark.asyncio
+async def testInviteCommandOutput():
+    interaction = MagicMock()
+    interaction.guild_id = 12345
+    interaction.guild = MagicMock()
+    interaction.response.send_message = AsyncMock()
+    
+    bot = MagicMock()
+    bot.user.id = 993329384499208252
+    
+    statService = MagicMock()
+    configService = MagicMock()
+    cog = StatusCog(bot=bot, statisticsService=statService, guildConfigService=configService)
+    await cog.invite.callback(cog, interaction)
+    
+    interaction.response.send_message.assert_awaited_once()
+    kwargs = interaction.response.send_message.call_args.kwargs
+    assert kwargs.get("ephemeral") is None or kwargs.get("ephemeral") is False
+    view = kwargs.get("view")
+    assert view is not None
+    components = view.to_components()
+    assert len(components) == 1
+    assert components[0]["type"] == 17
+    subComponents = components[0]["components"]
+    textContents = [c.get("content", "") for c in subComponents if "content" in c]
+    assert any("Invite BanInBlacklistedChannels Bot" in c for c in textContents)
+    buttonComponent = next((c for c in subComponents if c.get("type") == 2 or "url" in c), None)
+    assert buttonComponent is not None
+    assert "993329384499208252" in buttonComponent.get("url", "")
